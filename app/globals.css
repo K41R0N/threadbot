@@ -1,0 +1,16 @@
+@import "tailwindcss";
+
+:root {
+  --font-bebas: var(--font-bebas-neue);
+}
+
+body {
+  font-family: system-ui, -apple-system, sans-serif;
+  background: white;
+  color: black;
+}
+
+.font-display {
+  font-family: var(--font-bebas), sans-serif;
+  letter-spacing: 0.02em;
+}
