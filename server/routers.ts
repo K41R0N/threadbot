@@ -127,7 +127,44 @@ export const appRouter = router({
         return data;
       }),
 
-    // Set up Telegram webhook
+    // Set up Telegram webhook (server-side, token never exposed to client)
+    setupWebhookForUser: protectedProcedure.mutation(async ({ ctx }) => {
+      const supabase = getServerSupabase();
+
+      // Get full config from database (server-side only)
+      const { data: config, error } = await supabase
+        .from('bot_configs')
+        .select('telegram_bot_token, user_id')
+        .eq('user_id', ctx.userId)
+        .single();
+
+      if (error || !config) {
+        return {
+          success: false,
+          message: 'Bot configuration not found',
+        };
+      }
+
+      try {
+        const webhookUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/webhook/${config.user_id}`;
+        const secretToken = process.env.TELEGRAM_WEBHOOK_SECRET;
+
+        const telegram = new TelegramService(config.telegram_bot_token);
+        const success = await telegram.setWebhook(webhookUrl, secretToken);
+
+        return {
+          success,
+          message: success ? 'Webhook configured successfully' : 'Failed to configure webhook',
+        };
+      } catch (error: any) {
+        return {
+          success: false,
+          message: error.message,
+        };
+      }
+    }),
+
+    // Set up Telegram webhook (legacy - for manual setup with token)
     setupWebhook: protectedProcedure
       .input(z.object({
         botToken: z.string(),
