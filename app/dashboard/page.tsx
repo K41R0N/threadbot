@@ -28,7 +28,6 @@ export default function DashboardPage() {
   });
 
   const { data: subscription } = trpc.agent.getSubscription.useQuery();
-  const { data: rateLimitCheck } = trpc.agent.checkRateLimit.useQuery();
 
   // Get all user's prompt databases (grouped by month)
   const { data: allPrompts } = trpc.agent.getPrompts.useQuery({});
@@ -80,20 +79,7 @@ export default function DashboardPage() {
   const isNotionActive = config.prompt_source === 'notion' && config.is_active;
   const isNotionConnected = config.prompt_source === 'notion';
 
-  const canCreateDatabase = subscription?.tier !== 'free' || agentDatabases.length === 0;
-
   const handleCreateNew = () => {
-    if (!canCreateDatabase) {
-      setShowUpgrade(true);
-      return;
-    }
-
-    // Check rate limit for free users
-    if (subscription?.tier === 'free' && rateLimitCheck && !rateLimitCheck.canGenerate) {
-      toast.error(`Rate limit: Please wait ${rateLimitCheck.daysRemaining} more days`);
-      return;
-    }
-
     router.push('/agent/create');
   };
 
@@ -173,46 +159,42 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Your Plan */}
+        {/* Claude Credits */}
         <div className="border-2 border-black p-8 mb-8">
           <div className="flex justify-between items-start">
             <div className="flex-1">
-              <h2 className="text-3xl font-display mb-2">YOUR PLAN</h2>
+              <h2 className="text-3xl font-display mb-2">CLAUDE CREDITS</h2>
               <p className="text-xl mb-4">
-                <span className="font-display">{subscription?.tier?.toUpperCase() || 'FREE'}</span>
-                {subscription?.tier === 'free' && (
-                  <span className="text-gray-600 ml-2">• 1 AI Database | 1 Generation/Week</span>
-                )}
-                {subscription?.tier === 'pro' && (
-                  <span className="text-gray-600 ml-2">• Unlimited AI Databases | Unlimited Generations</span>
-                )}
+                <span className="font-display text-5xl">{subscription?.claude_credits || 0}</span>
+                <span className="text-gray-600 ml-3">credits remaining</span>
               </p>
+              <div className="text-sm text-gray-600 space-y-1">
+                <p>• DeepSeek R1: <span className="font-display">FREE</span> (Unlimited)</p>
+                <p>• Claude Sonnet 4.5: <span className="font-display">1 CREDIT</span> per generation</p>
+                <p>• Each purchase = 3 credits</p>
+              </div>
 
-              {/* Rate Limit Status */}
-              {subscription?.tier === 'free' && rateLimitCheck && (
-                <div className="mt-4">
-                  {rateLimitCheck.canGenerate ? (
-                    <div className="inline-flex items-center gap-2 text-green-700 bg-green-50 border-2 border-green-500 px-4 py-2">
-                      <span>✓</span>
-                      <span className="font-display text-sm">You can generate a new database</span>
-                    </div>
-                  ) : (
-                    <div className="inline-flex items-center gap-2 text-yellow-700 bg-yellow-50 border-2 border-yellow-500 px-4 py-2">
-                      <span>⏳</span>
-                      <span className="font-display text-sm">
-                        Next generation in {rateLimitCheck.daysRemaining} days
-                      </span>
-                    </div>
-                  )}
-                </div>
-              )}
+              {/* Credit Status */}
+              <div className="mt-4">
+                {(subscription?.claude_credits || 0) > 0 ? (
+                  <div className="inline-flex items-center gap-2 text-green-700 bg-green-50 border-2 border-green-500 px-4 py-2">
+                    <span>✓</span>
+                    <span className="font-display text-sm">You can use Claude for generation</span>
+                  </div>
+                ) : (
+                  <div className="inline-flex items-center gap-2 text-blue-700 bg-blue-50 border-2 border-blue-500 px-4 py-2">
+                    <span>💡</span>
+                    <span className="font-display text-sm">
+                      Use DeepSeek R1 for free, or purchase credits for Claude
+                    </span>
+                  </div>
+                )}
+              </div>
             </div>
 
-            {subscription?.tier === 'free' && (
-              <Button onClick={() => setShowUpgrade(true)}>
-                UPGRADE TO PRO
-              </Button>
-            )}
+            <Button onClick={() => setShowUpgrade(true)}>
+              BUY CREDITS
+            </Button>
           </div>
         </div>
 
@@ -225,7 +207,7 @@ export default function DashboardPage() {
                 Manage your AI-generated and Notion prompt calendars
               </p>
             </div>
-            <Button onClick={handleCreateNew} disabled={!canCreateDatabase && subscription?.tier === 'free'}>
+            <Button onClick={handleCreateNew}>
               + CREATE AI DATABASE
             </Button>
           </div>
@@ -318,26 +300,6 @@ export default function DashboardPage() {
               ))}
             </div>
           )}
-
-          {!canCreateDatabase && subscription?.tier === 'free' && (
-            <div className="mt-6 p-4 border-2 border-yellow-500 bg-yellow-50">
-              <div className="flex items-center justify-between">
-                <div className="flex-1">
-                  <span className="font-display text-sm">⚠️ FREE PLAN LIMIT:</span>
-                  <span className="text-sm ml-2">
-                    You&apos;ve reached the 1 AI database limit. Upgrade for unlimited databases.
-                  </span>
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowUpgrade(true)}
-                >
-                  UPGRADE TO PRO
-                </Button>
-              </div>
-            </div>
-          )}
         </div>
 
         {/* How It Works */}
@@ -379,49 +341,46 @@ export default function DashboardPage() {
         )}
       </div>
 
-      {/* Upgrade Modal */}
+      {/* Buy Credits Modal */}
       {showUpgrade && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
           <div className="bg-white border-4 border-black p-8 max-w-md">
-            <h2 className="text-3xl font-display mb-4">UPGRADE TO PRO</h2>
+            <h2 className="text-3xl font-display mb-4">BUY CLAUDE CREDITS</h2>
 
-            <div className="space-y-4 mb-6">
-              <div className="flex items-start gap-3">
-                <div className="text-2xl">✓</div>
-                <div>
-                  <div className="font-display">UNLIMITED DATABASES</div>
-                  <div className="text-sm text-gray-600">Create as many prompt calendars as you need</div>
+            <div className="mb-6">
+              <div className="border-2 border-black p-6 bg-gray-50">
+                <div className="text-center mb-4">
+                  <div className="text-6xl font-display mb-2">3</div>
+                  <div className="text-xl font-display">CLAUDE GENERATIONS</div>
+                </div>
+
+                <div className="border-t-2 border-black pt-4 mt-4 space-y-2 text-sm">
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-600">Model:</span>
+                    <span className="font-display">Claude Sonnet 4.5</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-600">Per generation:</span>
+                    <span className="font-display">60 prompts</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-600">Total prompts:</span>
+                    <span className="font-display">180 prompts</span>
+                  </div>
                 </div>
               </div>
 
-              <div className="flex items-start gap-3">
-                <div className="text-2xl">✓</div>
-                <div>
-                  <div className="font-display">UNLIMITED GENERATIONS</div>
-                  <div className="text-sm text-gray-600">No weekly rate limits</div>
-                </div>
-              </div>
-
-              <div className="flex items-start gap-3">
-                <div className="text-2xl">✓</div>
-                <div>
-                  <div className="font-display">CLAUDE SONNET 4.5</div>
-                  <div className="text-sm text-gray-600">Best-in-class AI for superior prompts</div>
-                </div>
-              </div>
-
-              <div className="flex items-start gap-3">
-                <div className="text-2xl">✓</div>
-                <div>
-                  <div className="font-display">PRIORITY SUPPORT</div>
-                  <div className="text-sm text-gray-600">Faster processing and support</div>
+              <div className="mt-4 p-4 border-2 border-blue-500 bg-blue-50">
+                <div className="font-display text-sm mb-1">💡 FREE ALTERNATIVE:</div>
+                <div className="text-sm text-gray-700">
+                  DeepSeek R1 is always free with unlimited generations
                 </div>
               </div>
             </div>
 
             <div className="border-t-2 border-black pt-6 mb-6">
-              <div className="text-4xl font-display mb-2">$9/mo</div>
-              <div className="text-gray-600">or $90/year (save 17%)</div>
+              <div className="text-5xl font-display mb-2">$9</div>
+              <div className="text-gray-600">one-time purchase</div>
             </div>
 
             <div className="flex gap-4">
@@ -430,7 +389,7 @@ export default function DashboardPage() {
                 onClick={() => setShowUpgrade(false)}
                 className="flex-1"
               >
-                MAYBE LATER
+                CANCEL
               </Button>
               <Button
                 onClick={() => {
@@ -439,7 +398,7 @@ export default function DashboardPage() {
                 }}
                 className="flex-1"
               >
-                UPGRADE NOW
+                BUY NOW
               </Button>
             </div>
           </div>

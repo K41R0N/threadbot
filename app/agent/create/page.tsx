@@ -26,10 +26,9 @@ export default function CreateDatabasePage() {
   const [useClaude, setUseClaude] = useState(false);
   const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
   const [generationProgress, setGenerationProgress] = useState('Initializing...');
-  const [showRateLimitWarning, setShowRateLimitWarning] = useState(false);
+  const [showCreditWarning, setShowCreditWarning] = useState(false);
 
   const { data: subscription } = trpc.agent.getSubscription.useQuery();
-  const { data: rateLimitCheck } = trpc.agent.checkRateLimit.useQuery();
 
   const analyzeContext = trpc.agent.analyzeContext.useMutation({
     onSuccess: (data) => {
@@ -48,11 +47,11 @@ export default function CreateDatabasePage() {
 
   const generateThemes = trpc.agent.generateThemes.useMutation({
     onSuccess: (data) => {
-      if (!data.success && (data as any).rateLimited) {
-        // Server-side rate limit triggered
-        toast.error(data.error || 'Rate limit exceeded');
+      if (!data.success && (data as any).needsCredits) {
+        // No credits remaining
+        toast.error(data.error || 'No credits remaining');
         setStep('model');
-        setTimeout(() => router.push('/dashboard'), 2000);
+        setShowCreditWarning(true);
       }
     },
   });
@@ -64,15 +63,11 @@ export default function CreateDatabasePage() {
         setTimeout(() => {
           router.push(`/agent/database/${monthYear}`);
         }, 1500);
-      } else if (data.requiresUpgrade) {
-        toast.error('Claude model requires Pro subscription');
+      } else if ((data as any).needsCredits) {
+        // No credits remaining
+        toast.error(data.error || 'No credits remaining');
         setStep('model');
-      } else if ((data as any).rateLimited) {
-        // Server-side rate limit triggered
-        toast.error(data.error || 'Rate limit exceeded');
-        setStep('model');
-        // Optionally redirect to dashboard
-        setTimeout(() => router.push('/dashboard'), 2000);
+        setShowCreditWarning(true);
       } else {
         toast.error(data.error || 'Generation failed');
         setStep('model');
@@ -117,15 +112,9 @@ export default function CreateDatabasePage() {
       return;
     }
 
-    // Check rate limit (only for free tier, server will handle admin exemption)
-    if (subscription?.tier === 'free' && rateLimitCheck && !rateLimitCheck.canGenerate) {
-      setShowRateLimitWarning(true);
-      return;
-    }
-
-    // Check if user can use Claude
-    if (useClaude && subscription?.tier === 'free') {
-      toast.error('Claude model requires Pro subscription');
+    // Warn if no credits and trying to use Claude
+    if (useClaude && (subscription?.claude_credits || 0) === 0) {
+      setShowCreditWarning(true);
       return;
     }
 
@@ -234,29 +223,29 @@ export default function CreateDatabasePage() {
       </div>
 
       <div className="container mx-auto px-4 py-12 max-w-4xl">
-        {/* Rate Limit Warning Modal */}
-        {showRateLimitWarning && (
+        {/* Credit Warning Modal */}
+        {showCreditWarning && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
             <div className="bg-white border-4 border-black p-8 max-w-lg">
-              <h2 className="text-3xl font-display mb-4">RATE LIMIT REACHED</h2>
+              <h2 className="text-3xl font-display mb-4">NO CLAUDE CREDITS</h2>
               <p className="mb-6">
-                Free users can generate 1 database per week to prevent spam and manage costs.
-                Your last generation was {rateLimitCheck?.lastGeneration ? new Date(rateLimitCheck.lastGeneration).toLocaleDateString() : 'recently'}.
+                You have <span className="font-display">{subscription?.claude_credits || 0} credits</span> remaining.
+                Claude Sonnet 4.5 requires 1 credit per generation.
               </p>
               <div className="border-2 border-black p-4 mb-6 bg-gray-50">
-                <div className="font-display mb-2">INSTEAD, YOU CAN:</div>
+                <div className="font-display mb-2">YOUR OPTIONS:</div>
                 <ul className="list-disc list-inside space-y-1 text-sm">
+                  <li>Use DeepSeek R1 instead (free, unlimited)</li>
+                  <li>Purchase 3 credits for $9</li>
                   <li>Edit your existing database manually</li>
-                  <li>Wait until next week for another generation</li>
-                  <li>Upgrade to Pro for unlimited generations</li>
                 </ul>
               </div>
               <div className="flex gap-4">
-                <Button variant="outline" onClick={() => setShowRateLimitWarning(false)} className="flex-1">
+                <Button variant="outline" onClick={() => setShowCreditWarning(false)} className="flex-1">
                   CANCEL
                 </Button>
                 <Button onClick={() => router.push('/dashboard')} className="flex-1">
-                  VIEW MY DATABASES
+                  BUY CREDITS
                 </Button>
               </div>
             </div>
