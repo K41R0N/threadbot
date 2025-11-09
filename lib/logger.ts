@@ -52,7 +52,9 @@ export class SafeLogger {
     const sanitized: any = {};
 
     for (const key in obj) {
-      if (!obj.hasOwnProperty(key)) continue;
+      // Use Object.prototype.hasOwnProperty.call to avoid issues with objects
+      // that don't have hasOwnProperty (null prototype or library objects)
+      if (!Object.prototype.hasOwnProperty.call(obj, key)) continue;
 
       // Check if this key should be redacted
       const keyLower = key.toLowerCase();
