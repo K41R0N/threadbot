@@ -2,6 +2,7 @@ import { NotionService } from './notion';
 import { TelegramService } from './telegram';
 import { getServerSupabase, type BotConfig } from '@/lib/supabase';
 import { format, toZonedTime } from 'date-fns-tz';
+import { SafeLogger } from '@/lib/logger';
 
 export class BotService {
   /**
@@ -66,7 +67,7 @@ export class BotService {
         pageId: page.id,
       };
     } catch (error: any) {
-      console.error('Send prompt error:', error);
+      SafeLogger.error('Send prompt error:', error);
       return {
         success: false,
         message: error.message,
@@ -106,7 +107,7 @@ export class BotService {
         message: 'Reply logged to Notion',
       };
     } catch (error: any) {
-      console.error('Handle reply error:', error);
+      SafeLogger.error('Handle reply error:', error);
       return {
         success: false,
         message: error.message,
