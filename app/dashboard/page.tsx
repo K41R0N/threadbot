@@ -109,7 +109,15 @@ export default function DashboardPage() {
 
         {/* Configuration */}
         <div className="border-2 border-black p-8 mb-8">
-          <h2 className="text-3xl font-display mb-6">CONFIGURATION</h2>
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-3xl font-display">CONFIGURATION</h2>
+            <Button
+              variant="outline"
+              onClick={() => router.push('/settings')}
+            >
+              EDIT SETTINGS
+            </Button>
+          </div>
           
           <div className="space-y-6">
             <div className="grid grid-cols-2 gap-6">
