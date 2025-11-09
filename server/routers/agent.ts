@@ -195,20 +195,20 @@ export const agentRouter = router({
         .eq('user_id', ctx.userId)
         .single();
 
-      if (!context || !context.core_themes) {
+      if (!context || !context.core_themes || context.core_themes.length === 0) {
         return {
           success: false,
-          error: 'Please analyze your context first',
+          error: 'Please analyze your context first. Go back to the Context step and analyze your brand URLs.',
         };
       }
 
       try {
         const themes = await AIAgentService.generateWeeklyThemes(
           {
-            coreThemes: context.core_themes,
-            brandVoice: context.brand_voice || '',
-            targetAudience: context.target_audience || '',
-            keyTopics: context.core_themes,
+            coreThemes: Array.isArray(context.core_themes) ? context.core_themes : [],
+            brandVoice: context.brand_voice || 'Professional and engaging',
+            targetAudience: context.target_audience || 'General audience',
+            keyTopics: Array.isArray(context.core_themes) ? context.core_themes : [],
           },
           input.userPreferences,
           input.useClaude
