@@ -12,6 +12,7 @@ CREATE TABLE user_prompts (
   post_type TEXT NOT NULL CHECK (post_type IN ('morning', 'evening')),
   status TEXT DEFAULT 'draft' CHECK (status IN ('draft', 'scheduled', 'sent')),
   prompts TEXT[] NOT NULL, -- Array of 5 prompts
+  response TEXT, -- User's reply from Telegram
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
 

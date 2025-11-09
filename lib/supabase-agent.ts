@@ -17,6 +17,7 @@ export interface UserPrompt {
   post_type: PostType;
   status: PromptStatus;
   prompts: string[]; // Array of 5 prompts
+  response: string | null; // User's reply from Telegram
   created_at: string;
   updated_at: string;
 }

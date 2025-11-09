@@ -29,14 +29,15 @@ export function getServerSupabase() {
 export type BotConfig = {
   id: string;
   user_id: string;
-  notion_token: string;
-  notion_database_id: string;
+  notion_token: string | null;
+  notion_database_id: string | null;
   telegram_bot_token: string;
   telegram_chat_id: string;
   timezone: string;
   morning_time: string;
   evening_time: string;
   is_active: boolean;
+  prompt_source: 'notion' | 'agent';
   created_at: string;
   updated_at: string;
 };
