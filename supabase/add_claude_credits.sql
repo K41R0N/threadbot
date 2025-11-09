@@ -13,16 +13,25 @@ RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
+DECLARE
+  rows_affected INTEGER;
 BEGIN
-  UPDATE user_subscriptions
-  SET claude_credits = GREATEST(claude_credits - 1, 0)
-  WHERE user_id = user_id_param;
+  -- First ensure a subscription row exists
+  INSERT INTO user_subscriptions (user_id, tier, claude_credits)
+  VALUES (user_id_param, 'free', 0)
+  ON CONFLICT (user_id) DO NOTHING;
 
-  -- If no subscription exists, create one with 0 credits
-  IF NOT FOUND THEN
-    INSERT INTO user_subscriptions (user_id, tier, claude_credits)
-    VALUES (user_id_param, 'free', 0)
-    ON CONFLICT (user_id) DO NOTHING;
+  -- Perform a guarded atomic update: only decrement if credits > 0
+  UPDATE user_subscriptions
+  SET claude_credits = claude_credits - 1
+  WHERE user_id = user_id_param AND claude_credits > 0;
+
+  -- Check how many rows were affected
+  GET DIAGNOSTICS rows_affected = ROW_COUNT;
+
+  -- If no rows were updated, credits are exhausted
+  IF rows_affected = 0 THEN
+    RAISE EXCEPTION 'Insufficient credits: User % has no Claude credits remaining', user_id_param;
   END IF;
 END;
 $$;

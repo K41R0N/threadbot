@@ -143,6 +143,7 @@ export default function CreateDatabasePage() {
       const themesResult = await generateThemes.mutateAsync({
         userPreferences: additionalContext || 'Follow the methodology provided in the context.',
         useClaude,
+        monthYear: startDate.slice(0, 7), // Persist themes under the user's selected month
       });
 
       if (!themesResult.success) {

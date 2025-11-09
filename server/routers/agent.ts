@@ -172,6 +172,7 @@ export const agentRouter = router({
       z.object({
         userPreferences: z.string(),
         useClaude: z.boolean().default(false),
+        monthYear: z.string(), // Format: "2025-11"
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -213,8 +214,8 @@ export const agentRouter = router({
           input.useClaude
         );
 
-        // Save themes to database
-        const monthYear = new Date().toISOString().slice(0, 7); // "2025-11"
+        // Save themes to database for the user's selected month
+        const monthYear = input.monthYear;
 
         await Promise.all(
           themes.map((theme) =>
@@ -374,7 +375,19 @@ export const agentRouter = router({
           }))
         );
 
-        // Mark job as completed
+        // Deduct 1 credit for Claude generations BEFORE marking complete (admins exempt)
+        // This ensures atomicity: if credit deduction fails, job stays incomplete
+        if (input.useClaude && !isAdmin(ctx.userId)) {
+          const { error: creditError } = await supabase
+            .rpc('decrement_claude_credits', { user_id_param: ctx.userId });
+
+          if (creditError) {
+            SafeLogger.error('Credit deduction failed:', creditError);
+            throw new Error('Failed to deduct credit: ' + creditError.message);
+          }
+        }
+
+        // Mark job as completed (only after successful credit deduction)
         await supabase
           .from('agent_generation_jobs')
           .update({
@@ -382,12 +395,6 @@ export const agentRouter = router({
             total_prompts: prompts.length,
           })
           .eq('id', job.id);
-
-        // Deduct 1 credit for Claude generations (admins exempt)
-        if (input.useClaude && !isAdmin(ctx.userId)) {
-          await supabase
-            .rpc('decrement_claude_credits', { user_id_param: ctx.userId });
-        }
 
         return {
           success: true,
