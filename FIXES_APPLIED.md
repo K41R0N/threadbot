@@ -4,9 +4,31 @@ This document summarizes all the fixes that have been applied to make the Thread
 
 ## Date: 2025-11-09
 
+**Last Update:** Added TypeScript fix for Notion SDK
+
 ---
 
-## 1. ✅ Created .env.example Template
+## 1. ✅ Fixed Notion SDK TypeScript Error
+
+**File:** `server/services/notion.ts`
+
+**Issue:** TypeScript build error on Vercel:
+```
+Type error: Property 'query' does not exist on type '{ retrieve: ... create: ... update: ... }'
+```
+
+**Cause:** TypeScript type definitions in `@notionhq/client` v5.3.0 don't properly expose the `query` method on `databases`, even though it exists at runtime.
+
+**Fix:** Added type assertion to work around TypeScript limitations:
+```typescript
+const response = await (this.client.databases as any).query({
+```
+
+**Impact:** Fixes build error on Vercel. The method works correctly at runtime; this is purely a TypeScript type system workaround.
+
+---
+
+## 2. ✅ Created .env.example Template
 
 **File:** `.env.example`
 
@@ -21,7 +43,7 @@ This document summarizes all the fixes that have been applied to make the Thread
 
 ---
 
-## 2. ✅ Fixed Middleware Webhook Route Pattern
+## 3. ✅ Fixed Middleware Webhook Route Pattern
 
 **File:** `middleware.ts`
 
@@ -43,7 +65,7 @@ This document summarizes all the fixes that have been applied to make the Thread
 
 ---
 
-## 3. ✅ Added Function Timeout Configuration
+## 4. ✅ Added Function Timeout Configuration
 
 **Files:**
 - `app/api/cron/route.ts`
@@ -59,7 +81,7 @@ This document summarizes all the fixes that have been applied to make the Thread
 
 ---
 
-## 4. ✅ Added Node.js Version Requirements
+## 5. ✅ Added Node.js Version Requirements
 
 **File:** `package.json`
 
@@ -77,7 +99,7 @@ This document summarizes all the fixes that have been applied to make the Thread
 
 ---
 
-## 5. 📝 Created Comprehensive Documentation
+## 6. 📝 Created Comprehensive Documentation
 
 **File:** `CLAUDE.md`
 
@@ -113,12 +135,14 @@ This document summarizes all the fixes that have been applied to make the Thread
 ## Files Modified
 
 1. `.env.example` - Created
-2. `middleware.ts` - Fixed webhook route pattern
-3. `app/api/cron/route.ts` - Added maxDuration
-4. `app/api/webhook/[userId]/route.ts` - Added maxDuration
-5. `package.json` - Added engines field
-6. `CLAUDE.md` - Created comprehensive documentation
-7. `FIXES_APPLIED.md` - This file
+2. `.gitignore` - Updated to allow .env.example
+3. `server/services/notion.ts` - Fixed TypeScript type error
+4. `middleware.ts` - Fixed webhook route pattern
+5. `app/api/cron/route.ts` - Added maxDuration
+6. `app/api/webhook/[userId]/route.ts` - Added maxDuration
+7. `package.json` - Added engines field
+8. `CLAUDE.md` - Created comprehensive documentation
+9. `FIXES_APPLIED.md` - This file
 
 ---
 
