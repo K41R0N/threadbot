@@ -13,6 +13,8 @@ export async function POST(
   try {
     const { userId } = await params;
 
+    SafeLogger.info('Webhook received', { userId });
+
     // SECURITY: Verify request is from Telegram using secret token
     const telegramSecretToken = request.headers.get('x-telegram-bot-api-secret-token');
     const expectedSecretToken = process.env.TELEGRAM_WEBHOOK_SECRET;
@@ -28,10 +30,16 @@ export async function POST(
 
     // Parse Telegram update
     const update = await request.json();
+    SafeLogger.info('Telegram update received', {
+      userId,
+      hasMessage: !!update.message,
+      hasText: !!update.message?.text
+    });
 
     // Extract message
     const message = update.message;
     if (!message || !message.text) {
+      SafeLogger.info('Ignoring non-text message', { userId });
       return NextResponse.json({ ok: true }); // Ignore non-text messages
     }
 
@@ -44,25 +52,31 @@ export async function POST(
       .single();
 
     if (error || !config) {
-      SafeLogger.error('Bot config not found for user', { userId });
+      SafeLogger.error('Bot config not found for user', { userId, error });
       return NextResponse.json({ ok: true }); // Silently ignore to prevent Telegram retries
     }
+
+    SafeLogger.info('Bot config found', { userId, chatId: config.telegram_chat_id });
 
     // Verify chat ID matches to prevent cross-user attacks
     if (message.chat.id.toString() !== config.telegram_chat_id) {
       SafeLogger.warn('Chat ID mismatch', {
         userId,
         receivedChatId: message.chat.id,
-        // Don't log expected chat ID for security
+        expectedChatId: config.telegram_chat_id,
       });
       return NextResponse.json({ ok: true }); // Silently ignore
     }
+
+    SafeLogger.info('Chat ID verified, handling reply', { userId, textLength: message.text.length });
 
     // Handle the reply
     const result = await BotService.handleReply(config, message.text);
 
     if (!result.success) {
       SafeLogger.error('Failed to handle reply', { userId, error: result.message });
+    } else {
+      SafeLogger.info('Reply handled successfully', { userId });
     }
 
     return NextResponse.json({ ok: true });
