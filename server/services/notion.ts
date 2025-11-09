@@ -3,9 +3,39 @@ import { SafeLogger } from '@/lib/logger';
 
 export class NotionService {
   private client: Client;
+  private dataSourceCache: Map<string, string> = new Map();
 
   constructor(token: string) {
     this.client = new Client({ auth: token });
+  }
+
+  /**
+   * Get data source ID from database ID (required for API v2025-09-03)
+   */
+  private async getDataSourceId(databaseId: string): Promise<string> {
+    // Check cache first
+    if (this.dataSourceCache.has(databaseId)) {
+      return this.dataSourceCache.get(databaseId)!;
+    }
+
+    try {
+      // Retrieve database to get its data sources
+      const database = await this.client.databases.retrieve({
+        database_id: databaseId,
+      }) as any;
+
+      // Most databases have one data source - use the first one
+      if (database.data_sources && database.data_sources.length > 0) {
+        const dataSourceId = database.data_sources[0].id;
+        this.dataSourceCache.set(databaseId, dataSourceId);
+        return dataSourceId;
+      }
+
+      throw new Error('Database has no data sources');
+    } catch (error: any) {
+      SafeLogger.error('Failed to get data source ID:', error);
+      throw new Error(`Could not retrieve database: ${error.message}`);
+    }
   }
 
   /**
@@ -13,9 +43,12 @@ export class NotionService {
    */
   async queryDatabase(databaseId: string, date: string, type: 'morning' | 'evening') {
     try {
-      // Query the Notion database
-      const response = await this.client.databases.query({
-        database_id: databaseId,
+      // Get the data source ID from the database ID
+      const dataSourceId = await this.getDataSourceId(databaseId);
+
+      // Query the Notion data source (new API v2025-09-03)
+      const response = await (this.client.dataSources as any).query({
+        data_source_id: dataSourceId,
         filter: {
           and: [
             {
