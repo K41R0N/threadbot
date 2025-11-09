@@ -126,20 +126,12 @@ export default function SettingsPage() {
               </Button>
               <h1 className="text-4xl font-display">SETTINGS</h1>
             </div>
-            <div className="flex items-center gap-3">
-              <Button
-                variant="outline"
-                onClick={() => router.push('/agent')}
-              >
-                AGENT
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => router.push('/dashboard')}
-              >
-                DASHBOARD
-              </Button>
-            </div>
+            <Button
+              variant="outline"
+              onClick={() => router.push('/dashboard')}
+            >
+              DASHBOARD
+            </Button>
           </div>
 
           {/* Breadcrumb */}

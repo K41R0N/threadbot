@@ -122,7 +122,7 @@ export default function DatabasePage({ params }: { params: Promise<{ monthYear: 
             <div className="flex items-center gap-4">
               <Button
                 variant="outline"
-                onClick={() => router.push('/agent')}
+                onClick={() => router.push('/dashboard')}
               >
                 ← BACK
               </Button>
@@ -151,8 +151,6 @@ export default function DatabasePage({ params }: { params: Promise<{ monthYear: 
           {/* Breadcrumb */}
           <div className="text-sm text-gray-600">
             <span className="cursor-pointer hover:text-black" onClick={() => router.push('/dashboard')}>Dashboard</span>
-            <span className="mx-2">→</span>
-            <span className="cursor-pointer hover:text-black" onClick={() => router.push('/agent')}>AI Agent</span>
             <span className="mx-2">→</span>
             <span>{monthName}</span>
           </div>

@@ -163,23 +163,38 @@ export default function CreateDatabasePage() {
       {/* Header with Navigation */}
       <div className="border-b-2 border-black">
         <div className="container mx-auto px-4 py-6">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-4">
               <Button
                 variant="outline"
-                onClick={() => router.push('/agent')}
+                onClick={() => router.push('/dashboard')}
                 disabled={step === 'generating'}
               >
-                ← BACK TO AGENT
+                ← BACK
               </Button>
-              <h1 className="text-4xl font-display">CREATE DATABASE</h1>
+              <h1 className="text-4xl font-display">CREATE AI DATABASE</h1>
             </div>
-            <Button
-              variant="outline"
-              onClick={() => router.push('/dashboard')}
-            >
-              DASHBOARD
-            </Button>
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                onClick={() => router.push('/settings')}
+              >
+                SETTINGS
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => router.push('/dashboard')}
+              >
+                DASHBOARD
+              </Button>
+            </div>
+          </div>
+
+          {/* Breadcrumb */}
+          <div className="text-sm text-gray-600 mb-4">
+            <span className="cursor-pointer hover:text-black" onClick={() => router.push('/dashboard')}>Dashboard</span>
+            <span className="mx-2">→</span>
+            <span>Create Database</span>
           </div>
 
           {/* Progress Indicator */}
@@ -221,8 +236,8 @@ export default function CreateDatabasePage() {
                 <Button variant="outline" onClick={() => setShowRateLimitWarning(false)} className="flex-1">
                   CANCEL
                 </Button>
-                <Button onClick={() => router.push('/agent')} className="flex-1">
-                  VIEW MY DATABASE
+                <Button onClick={() => router.push('/dashboard')} className="flex-1">
+                  VIEW MY DATABASES
                 </Button>
               </div>
             </div>
