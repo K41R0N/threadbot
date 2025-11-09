@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSupabase } from '@/lib/supabase';
 import { BotService } from '@/server/services/bot';
 
+// Set function timeout to 30 seconds (requires Vercel Pro)
+export const maxDuration = 30;
+
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
