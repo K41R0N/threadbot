@@ -80,7 +80,7 @@ export default function DatabasePage({ params }: { params: Promise<{ monthYear: 
       p.week_theme,
       p.post_type,
       p.status,
-      p.prompts.map((prompt, i) => `${i + 1}. ${prompt}`).join(' '),
+      p.prompts.map((prompt: string, i: number) => `${i + 1}. ${prompt}`).join(' '),
     ]);
 
     const csvContent = [

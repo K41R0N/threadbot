@@ -49,7 +49,7 @@ export const agentRouter = router({
         brandUrls: z.array(z.string().url()).optional(),
         competitorUrls: z.array(z.string().url()).optional(),
         brandVoice: z.string().optional(),
-        toneAttributes: z.record(z.any()).optional(),
+        toneAttributes: z.record(z.string(), z.any()).optional(),
         targetAudience: z.string().optional(),
       })
     )
