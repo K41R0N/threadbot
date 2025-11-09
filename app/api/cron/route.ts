@@ -8,29 +8,27 @@ export const maxDuration = 30;
 
 export async function GET(request: NextRequest) {
   try {
-    // SECURITY: Verify request is authorized
-    // Accept either:
-    // 1. Requests from Vercel Cron (has x-vercel-cron header)
-    // 2. Requests with valid CRON_SECRET authorization header
-
+    // SECURITY: Require CRON_SECRET for all requests
     const authHeader = request.headers.get('authorization');
     const cronSecret = process.env.CRON_SECRET;
-    const vercelCronHeader = request.headers.get('x-vercel-cron');
+    const vercelCronHeader = request.headers.get('x-vercel-cron'); // For logging only
 
-    // Check if request is from Vercel Cron
-    const isVercelCron = vercelCronHeader !== null;
+    // CRON_SECRET must be configured
+    if (!cronSecret) {
+      SafeLogger.error('CRON_SECRET environment variable not configured');
+      return NextResponse.json(
+        { error: 'Server configuration error' },
+        { status: 500 }
+      );
+    }
 
-    // Check if request has valid CRON_SECRET
-    const hasValidSecret = cronSecret && authHeader === `Bearer ${cronSecret}`;
-
-    // Require at least one valid authentication method
-    if (!isVercelCron && !hasValidSecret) {
+    // Verify the authorization header matches the secret
+    if (authHeader !== `Bearer ${cronSecret}`) {
       SafeLogger.warn('Unauthorized cron request attempt', {
         ip: request.headers.get('x-forwarded-for'),
         userAgent: request.headers.get('user-agent'),
         hasAuthHeader: !!authHeader,
-        hasVercelCronHeader: isVercelCron,
-        hasCronSecret: !!cronSecret,
+        vercelCronHeader, // Log for diagnostics
       });
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }

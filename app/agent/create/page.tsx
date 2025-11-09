@@ -40,8 +40,8 @@ export default function CreateDatabasePage() {
 
   const analyzeContext = trpc.agent.analyzeContext.useMutation({
     onSuccess: (data) => {
-      if (data.success) {
-        setAnalysis(data.analysis);
+      if (data.success && data.analysis) {
+        setAnalysis(data.analysis as AnalysisResult);
         setStep('model');
         toast.success('Context analyzed successfully!');
       } else {
@@ -143,6 +143,7 @@ export default function CreateDatabasePage() {
       const themesResult = await generateThemes.mutateAsync({
         userPreferences: additionalContext || 'Follow the methodology provided in the context.',
         useClaude,
+        monthYear: startDate.slice(0, 7), // Persist themes under the user's selected month
       });
 
       if (!themesResult.success) {
