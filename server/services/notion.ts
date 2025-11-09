@@ -13,9 +13,9 @@ export class NotionService {
    */
   async queryDatabase(databaseId: string, date: string, type: 'morning' | 'evening') {
     try {
-      // Use type assertion to work around TypeScript limitations
-      const response = await (this.client.databases as any).query({
-        database_id: databaseId,
+      // Notion SDK v5.x uses dataSources.query instead of databases.query
+      const response = await (this.client.dataSources as any).query({
+        data_source_id: databaseId,
         filter: {
           and: [
             {
