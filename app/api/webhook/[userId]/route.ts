@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSupabase } from '@/lib/supabase';
 import { BotService } from '@/server/services/bot';
 
+// Set function timeout to 10 seconds
+export const maxDuration = 10;
+
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ userId: string }> }
