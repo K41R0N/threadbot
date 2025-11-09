@@ -6,20 +6,21 @@ import { BotService } from './services/bot';
 
 export const appRouter = router({
   bot: router({
-    // Get user's bot configuration
+    // Get user's bot configuration (excluding sensitive tokens)
     getConfig: protectedProcedure.query(async ({ ctx }) => {
       const supabase = getServerSupabase();
-      
+
+      // SECURITY: Only select non-sensitive fields. Never send tokens to client!
       const { data, error } = await supabase
         .from('bot_configs')
-        .select('*')
+        .select('id, user_id, notion_database_id, telegram_chat_id, timezone, morning_time, evening_time, is_active, created_at, updated_at')
         .eq('user_id', ctx.userId)
         .single();
-      
+
       if (error && error.code !== 'PGRST116') { // PGRST116 = not found
-        throw new Error(`Failed to fetch bot config: ${error.message}`);
+        throw new Error('Failed to fetch bot configuration');
       }
-      
+
       return data;
     }),
 
@@ -68,20 +69,21 @@ export const appRouter = router({
             evening_time: input.eveningTime,
             is_active: input.isActive,
           })
-          .select()
+          .select('id, user_id, notion_database_id, telegram_chat_id, timezone, morning_time, evening_time, is_active, created_at, updated_at')
           .single();
-        
+
         if (error) {
-          throw new Error(`Failed to create bot config: ${error.message}`);
+          throw new Error('Failed to create bot configuration');
         }
-        
+
         // Initialize bot state
         await supabase
           .from('bot_state')
           .insert({
             user_id: ctx.userId,
           });
-        
+
+        // SECURITY: Return config without sensitive tokens
         return data;
       }),
 
@@ -114,13 +116,14 @@ export const appRouter = router({
           .from('bot_configs')
           .update(updateData)
           .eq('user_id', ctx.userId)
-          .select()
+          .select('id, user_id, notion_database_id, telegram_chat_id, timezone, morning_time, evening_time, is_active, created_at, updated_at')
           .single();
-        
+
         if (error) {
-          throw new Error(`Failed to update bot config: ${error.message}`);
+          throw new Error('Failed to update bot configuration');
         }
-        
+
+        // SECURITY: Return config without sensitive tokens
         return data;
       }),
 

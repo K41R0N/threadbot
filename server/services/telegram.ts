@@ -1,4 +1,5 @@
 import TelegramBot from 'node-telegram-bot-api';
+import { SafeLogger } from '@/lib/logger';
 
 export class TelegramService {
   private bot: TelegramBot;
@@ -17,20 +18,27 @@ export class TelegramService {
         parse_mode: 'Markdown',
       });
     } catch (error: any) {
-      console.error('Telegram send error:', error);
+      SafeLogger.error('Telegram send error:', error);
       throw new Error(`Failed to send Telegram message: ${error.message}`);
     }
   }
 
   /**
-   * Set webhook URL for receiving messages
+   * Set webhook URL for receiving messages with optional secret token
+   * @param webhookUrl - The webhook URL
+   * @param secretToken - Optional secret token for webhook verification (recommended)
    */
-  async setWebhook(webhookUrl: string): Promise<boolean> {
+  async setWebhook(webhookUrl: string, secretToken?: string): Promise<boolean> {
     try {
-      const result = await this.bot.setWebHook(webhookUrl);
+      const options: any = {};
+      if (secretToken) {
+        options.secret_token = secretToken;
+      }
+
+      const result = await this.bot.setWebHook(webhookUrl, options);
       return result;
     } catch (error: any) {
-      console.error('Telegram webhook setup error:', error);
+      SafeLogger.error('Telegram webhook setup error:', error);
       throw new Error(`Failed to set webhook: ${error.message}`);
     }
   }
@@ -42,7 +50,7 @@ export class TelegramService {
     try {
       return await this.bot.getWebHookInfo();
     } catch (error: any) {
-      console.error('Telegram webhook info error:', error);
+      SafeLogger.error('Telegram webhook info error:', error);
       throw new Error(`Failed to get webhook info: ${error.message}`);
     }
   }
@@ -54,7 +62,7 @@ export class TelegramService {
     try {
       return await this.bot.deleteWebHook();
     } catch (error: any) {
-      console.error('Telegram webhook deletion error:', error);
+      SafeLogger.error('Telegram webhook deletion error:', error);
       throw new Error(`Failed to delete webhook: ${error.message}`);
     }
   }

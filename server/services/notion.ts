@@ -1,4 +1,5 @@
 import { Client } from '@notionhq/client';
+import { SafeLogger } from '@/lib/logger';
 
 export class NotionService {
   private client: Client;
@@ -42,7 +43,7 @@ export class NotionService {
 
       return matchingPages.length > 0 ? matchingPages[0] : null;
     } catch (error: any) {
-      console.error('Notion query error:', error);
+      SafeLogger.error('Notion query error:', error);
       throw new Error(`Failed to query Notion database: ${error.message}`);
     }
   }
@@ -81,7 +82,7 @@ export class NotionService {
 
       return content.join('\n\n');
     } catch (error: any) {
-      console.error('Notion content extraction error:', error);
+      SafeLogger.error('Notion content extraction error:', error);
       throw new Error(`Failed to extract page content: ${error.message}`);
     }
   }
@@ -111,7 +112,7 @@ export class NotionService {
         ],
       });
     } catch (error: any) {
-      console.error('Notion append error:', error);
+      SafeLogger.error('Notion append error:', error);
       throw new Error(`Failed to append reply: ${error.message}`);
     }
   }
