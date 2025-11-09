@@ -46,8 +46,27 @@ export class BotService {
         };
       }
 
-      // Send to Telegram
-      const message = `*${type.toUpperCase()} PROMPT*\n\n${content}`;
+      // Extract page properties
+      const pageProps = page.properties as any;
+
+      // Get date from Date property
+      const dateProperty = pageProps.Date?.date?.start || dateString;
+      const formattedDate = format(toZonedTime(new Date(dateProperty), config.timezone), 'EEEE yyyy-MM-dd');
+
+      // Get topic/week from properties (check for "Topic" or "Week" property)
+      const topicProperty = pageProps.Topic?.rich_text?.[0]?.plain_text ||
+                           pageProps.Week?.rich_text?.[0]?.plain_text ||
+                           pageProps.Name?.title?.[0]?.plain_text ||
+                           'Daily Prompt';
+
+      // Determine greeting and emoji based on type
+      const greeting = type === 'morning' ? 'Good morning!' : 'Good afternoon!';
+      const emoji = type === 'morning' ? '🌅' : '🌆';
+      const promptLabel = type === 'morning' ? 'Morning' : 'Evening';
+
+      // Format message with requested structure
+      const message = `${greeting}\n\n${emoji} ${formattedDate} - ${promptLabel}\n🎯 ${topicProperty}\n\n${content}\n\n💬 Reply to this message to log your response to Notion.`;
+
       await telegram.sendMessage(config.telegram_chat_id, message);
 
       // Update bot state
