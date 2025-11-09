@@ -14,6 +14,14 @@ interface AnalysisResult {
   targetAudience?: string;
 }
 
+interface GenerationMutationResponse {
+  success: boolean;
+  error?: string;
+  needsCredits?: boolean;
+  totalPrompts?: number;
+  jobId?: string;
+}
+
 export default function CreateDatabasePage() {
   const router = useRouter();
   const { isSignedIn } = useUser();
@@ -47,9 +55,10 @@ export default function CreateDatabasePage() {
 
   const generateThemes = trpc.agent.generateThemes.useMutation({
     onSuccess: (data) => {
-      if (!data.success && (data as any).needsCredits) {
+      const response = data as GenerationMutationResponse;
+      if (!response.success && response.needsCredits) {
         // No credits remaining
-        toast.error(data.error || 'No credits remaining');
+        toast.error(response.error || 'No credits remaining');
         setStep('model');
         setShowCreditWarning(true);
       }
@@ -57,19 +66,20 @@ export default function CreateDatabasePage() {
   });
   const generatePrompts = trpc.agent.generatePrompts.useMutation({
     onSuccess: (data) => {
-      if (data.success) {
+      const response = data as GenerationMutationResponse;
+      if (response.success) {
         const monthYear = startDate.slice(0, 7);
-        toast.success(`Generated ${data.totalPrompts} prompts!`);
+        toast.success(`Generated ${response.totalPrompts} prompts!`);
         setTimeout(() => {
           router.push(`/agent/database/${monthYear}`);
         }, 1500);
-      } else if ((data as any).needsCredits) {
+      } else if (response.needsCredits) {
         // No credits remaining
-        toast.error(data.error || 'No credits remaining');
+        toast.error(response.error || 'No credits remaining');
         setStep('model');
         setShowCreditWarning(true);
       } else {
-        toast.error(data.error || 'Generation failed');
+        toast.error(response.error || 'Generation failed');
         setStep('model');
       }
     },
@@ -154,11 +164,6 @@ export default function CreateDatabasePage() {
       toast.error(errorMessage);
       setStep('model');
     }
-  };
-
-  const confirmRateLimitBypass = () => {
-    setShowRateLimitWarning(false);
-    toast.info('Please edit your existing database or wait until next week');
   };
 
   if (!isSignedIn) {
@@ -481,8 +486,8 @@ export default function CreateDatabasePage() {
                 />
               </div>
 
-              {/* Rate Limit Info */}
-              {!isAdmin && subscription?.tier === 'free' && (
+              {/* Free Tier Info */}
+              {subscription?.tier === 'free' && (
                 <div className="border-2 border-yellow-500 bg-yellow-50 p-4 mb-6">
                   <div className="font-display text-sm mb-1">⚠️ FREE TIER LIMIT</div>
                   <div className="text-sm text-gray-700">
