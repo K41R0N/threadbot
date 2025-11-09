@@ -40,8 +40,8 @@ export default function CreateDatabasePage() {
 
   const analyzeContext = trpc.agent.analyzeContext.useMutation({
     onSuccess: (data) => {
-      if (data.success) {
-        setAnalysis(data.analysis);
+      if (data.success && data.analysis) {
+        setAnalysis(data.analysis as AnalysisResult);
         setStep('model');
         toast.success('Context analyzed successfully!');
       } else {

@@ -75,7 +75,7 @@ export default function DashboardPage() {
     return acc;
   }, []) || [];
 
-  const hasNotionDatabase = config.notion_database_id && config.notion_token;
+  const hasNotionDatabase = config.notion_database_id;
   const isNotionActive = config.prompt_source === 'notion' && config.is_active;
   const isNotionConnected = config.prompt_source === 'notion';
 
@@ -281,7 +281,7 @@ export default function DashboardPage() {
                         <span>•</span>
                         <span>{db.eveningCount} evening prompts</span>
                         <span>•</span>
-                        <span>Created {new Date(db.createdAt).toLocaleDateString()}</span>
+                        <span>Created {db.createdAt ? new Date(db.createdAt).toLocaleDateString() : 'Unknown'}</span>
                       </div>
                       {db.status === 'active' && (
                         <div className="mt-2 text-sm text-green-700">
