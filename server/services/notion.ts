@@ -67,9 +67,19 @@ export class NotionService {
         ],
       });
 
+      // Ensure response has results array
+      if (!response || !Array.isArray(response.results)) {
+        SafeLogger.error('Invalid response from Notion:', response);
+        throw new Error('Invalid response structure from Notion API');
+      }
+
       // Filter by type in page title
       const typeKeyword = type.charAt(0).toUpperCase() + type.slice(1);
       const matchingPages = response.results.filter((page: any) => {
+        // Defensive checks for page structure
+        if (!page || typeof page !== 'object') return false;
+        if (!page.properties || typeof page.properties !== 'object') return false;
+
         const title = page.properties.Name?.title?.[0]?.plain_text || '';
         return title.toLowerCase().includes(type.toLowerCase());
       });
@@ -90,24 +100,33 @@ export class NotionService {
         block_id: pageId,
       });
 
+      // Ensure blocks has results array
+      if (!blocks || !Array.isArray(blocks.results)) {
+        SafeLogger.error('Invalid blocks response from Notion:', blocks);
+        return ''; // Return empty string instead of throwing
+      }
+
       const content: string[] = [];
 
       for (const block of blocks.results) {
+        // Skip null/undefined blocks
+        if (!block || typeof block !== 'object') continue;
+
         const blockData = block as any;
-        
+
         if (blockData.type === 'paragraph' && blockData.paragraph?.rich_text) {
           const text = blockData.paragraph.rich_text
-            .map((rt: any) => rt.plain_text)
+            .map((rt: any) => rt?.plain_text || '')
             .join('');
           if (text.trim()) content.push(text);
         } else if (blockData.type === 'bulleted_list_item' && blockData.bulleted_list_item?.rich_text) {
           const text = blockData.bulleted_list_item.rich_text
-            .map((rt: any) => rt.plain_text)
+            .map((rt: any) => rt?.plain_text || '')
             .join('');
           if (text.trim()) content.push(`• ${text}`);
         } else if (blockData.type === 'numbered_list_item' && blockData.numbered_list_item?.rich_text) {
           const text = blockData.numbered_list_item.rich_text
-            .map((rt: any) => rt.plain_text)
+            .map((rt: any) => rt?.plain_text || '')
             .join('');
           if (text.trim()) content.push(text);
         }
