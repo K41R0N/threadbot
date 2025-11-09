@@ -28,7 +28,6 @@ export default function DashboardPage() {
   });
 
   const { data: subscription } = trpc.agent.getSubscription.useQuery();
-  const { data: userInfo } = trpc.agent.getCurrentUserId.useQuery();
 
   // Get all user's prompt databases (grouped by month)
   const { data: allPrompts } = trpc.agent.getPrompts.useQuery({});
@@ -402,36 +401,6 @@ export default function DashboardPage() {
                 BUY NOW
               </Button>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* Developer Info - For Admin Setup */}
-      {userInfo && (
-        <div className="fixed bottom-4 right-4 bg-gray-900 text-white p-4 rounded-lg shadow-lg text-xs max-w-md">
-          <div className="font-display mb-2">DEVELOPER INFO</div>
-          <div className="space-y-1 font-mono">
-            <div>
-              <span className="text-gray-400">User ID:</span>{' '}
-              <button
-                onClick={() => {
-                  navigator.clipboard.writeText(userInfo.userId);
-                  toast.success('User ID copied to clipboard!');
-                }}
-                className="text-blue-400 hover:text-blue-300 underline cursor-pointer"
-              >
-                {userInfo.userId}
-              </button>
-            </div>
-            <div>
-              <span className="text-gray-400">Admin Status:</span>{' '}
-              <span className={userInfo.isAdmin ? 'text-green-400' : 'text-red-400'}>
-                {userInfo.isAdmin ? '✓ ADMIN' : '✗ Not Admin'}
-              </span>
-            </div>
-          </div>
-          <div className="mt-2 text-gray-400 text-xs">
-            Copy your User ID and update ADMIN_USER_ID in server/routers/agent.ts
           </div>
         </div>
       )}

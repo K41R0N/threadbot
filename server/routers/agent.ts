@@ -58,15 +58,6 @@ async function checkCredits(userId: string, useClaude: boolean) {
 }
 
 export const agentRouter = router({
-  // Helper to get current user ID for admin setup
-  getCurrentUserId: protectedProcedure.query(async ({ ctx }) => {
-    SafeLogger.info('Current user ID:', { userId: ctx.userId });
-    return {
-      userId: ctx.userId,
-      isAdmin: isAdmin(ctx.userId),
-    };
-  }),
-
   // Get user's subscription and credits
   getSubscription: protectedProcedure.query(async ({ ctx }) => {
     const supabase = getServerSupabase();
