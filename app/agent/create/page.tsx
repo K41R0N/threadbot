@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser } from '@clerk/nextjs';
 import { Button } from '@/components/ui/button';
@@ -8,9 +8,15 @@ import { Input } from '@/components/ui/input';
 import { trpc } from '@/lib/trpc';
 import { toast } from 'sonner';
 
+interface AnalysisResult {
+  coreThemes?: string[];
+  brandVoice?: string;
+  targetAudience?: string;
+}
+
 export default function CreateDatabasePage() {
   const router = useRouter();
-  const { isSignedIn, user } = useUser();
+  const { isSignedIn } = useUser();
 
   const [step, setStep] = useState<'context' | 'model' | 'generating'>('context');
   const [brandUrls, setBrandUrls] = useState<string[]>(['']);
@@ -18,15 +24,12 @@ export default function CreateDatabasePage() {
   const [additionalContext, setAdditionalContext] = useState('');
   const [startDate, setStartDate] = useState('');
   const [useClaude, setUseClaude] = useState(false);
-  const [analysis, setAnalysis] = useState<any>(null);
+  const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
   const [generationProgress, setGenerationProgress] = useState('Initializing...');
   const [showRateLimitWarning, setShowRateLimitWarning] = useState(false);
 
   const { data: subscription } = trpc.agent.getSubscription.useQuery();
   const { data: rateLimitCheck } = trpc.agent.checkRateLimit.useQuery();
-
-  // Check if user is admin
-  const isAdmin = user?.id === 'user_2qVl3Z4r8Ys9Xx7Ww6Vv5Uu4Tt3';
 
   const analyzeContext = trpc.agent.analyzeContext.useMutation({
     onSuccess: (data) => {
@@ -43,7 +46,16 @@ export default function CreateDatabasePage() {
     },
   });
 
-  const generateThemes = trpc.agent.generateThemes.useMutation();
+  const generateThemes = trpc.agent.generateThemes.useMutation({
+    onSuccess: (data) => {
+      if (!data.success && (data as any).rateLimited) {
+        // Server-side rate limit triggered
+        toast.error(data.error || 'Rate limit exceeded');
+        setStep('model');
+        setTimeout(() => router.push('/dashboard'), 2000);
+      }
+    },
+  });
   const generatePrompts = trpc.agent.generatePrompts.useMutation({
     onSuccess: (data) => {
       if (data.success) {
@@ -105,9 +117,8 @@ export default function CreateDatabasePage() {
       return;
     }
 
-    // Check rate limit (only for free tier, excluding admins)
-    const isPro = subscription?.tier === 'pro';
-    if (!isAdmin && !isPro && subscription?.tier === 'free' && rateLimitCheck && !rateLimitCheck.canGenerate) {
+    // Check rate limit (only for free tier, server will handle admin exemption)
+    if (subscription?.tier === 'free' && rateLimitCheck && !rateLimitCheck.canGenerate) {
       setShowRateLimitWarning(true);
       return;
     }

@@ -9,6 +9,53 @@ import { getServerSupabase } from '@/lib/supabase';
 import { AIAgentService } from '../services/ai-agent';
 import { SafeLogger } from '@/lib/logger';
 
+// Admin user ID - checked server-side only
+const ADMIN_USER_ID = 'user_2qVl3Z4r8Ys9Xx7Ww6Vv5Uu4Tt3';
+
+/**
+ * Check if user is an admin
+ */
+function isAdmin(userId: string): boolean {
+  return userId === ADMIN_USER_ID;
+}
+
+/**
+ * Check rate limit for free tier users (7-day window)
+ * Admins and Pro users are exempt
+ */
+async function checkRateLimit(userId: string, userTier: string) {
+  if (isAdmin(userId) || userTier !== 'free') {
+    return { allowed: true };
+  }
+
+  const supabase = getServerSupabase();
+  const { data: lastJob } = await supabase
+    .from('agent_generation_jobs')
+    .select('created_at')
+    .eq('user_id', userId)
+    .eq('status', 'completed')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .single();
+
+  if (!lastJob) {
+    return { allowed: true };
+  }
+
+  const lastGeneration = new Date(lastJob.created_at);
+  const daysSince = (Date.now() - lastGeneration.getTime()) / (1000 * 60 * 60 * 24);
+
+  if (daysSince < 7) {
+    const daysRemaining = Math.ceil(7 - daysSince);
+    return {
+      allowed: false,
+      error: `Free tier users can generate 1 database per week. Please wait ${daysRemaining} more day${daysRemaining > 1 ? 's' : ''}.`,
+    };
+  }
+
+  return { allowed: true };
+}
+
 export const agentRouter = router({
   // Get user's subscription tier
   getSubscription: protectedProcedure.query(async ({ ctx }) => {
@@ -163,21 +210,32 @@ export const agentRouter = router({
     .mutation(async ({ ctx, input }) => {
       const supabase = getServerSupabase();
 
-      // SECURITY: Check if user can use Claude
-      if (input.useClaude) {
-        const { data: subscription } = await supabase
-          .from('user_subscriptions')
-          .select('tier')
-          .eq('user_id', ctx.userId)
-          .single();
+      // SECURITY: Check subscription tier
+      const { data: subscription } = await supabase
+        .from('user_subscriptions')
+        .select('tier')
+        .eq('user_id', ctx.userId)
+        .single();
 
-        if (!subscription || subscription.tier === 'free') {
-          return {
-            success: false,
-            error: 'Claude model requires Pro subscription',
-            requiresUpgrade: true,
-          };
-        }
+      const userTier = subscription?.tier || 'free';
+
+      // SECURITY: Check if user can use Claude
+      if (input.useClaude && userTier === 'free') {
+        return {
+          success: false,
+          error: 'Claude model requires Pro subscription',
+          requiresUpgrade: true,
+        };
+      }
+
+      // SECURITY: Enforce rate limit for free tier users (admins exempt)
+      const rateLimitResult = await checkRateLimit(ctx.userId, userTier);
+      if (!rateLimitResult.allowed) {
+        return {
+          success: false,
+          error: rateLimitResult.error,
+          rateLimited: true,
+        };
       }
 
       // Get user context
@@ -305,31 +363,14 @@ export const agentRouter = router({
         };
       }
 
-      // SECURITY: Enforce rate limit for free tier users
-      if (userTier === 'free') {
-        const { data: lastJob } = await supabase
-          .from('agent_generation_jobs')
-          .select('created_at, status')
-          .eq('user_id', ctx.userId)
-          .eq('status', 'completed')
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .single();
-
-        if (lastJob) {
-          const lastGenerationDate = new Date(lastJob.created_at);
-          const now = new Date();
-          const daysSinceLastGeneration = (now.getTime() - lastGenerationDate.getTime()) / (1000 * 60 * 60 * 24);
-
-          if (daysSinceLastGeneration < 7) {
-            const daysRemaining = Math.ceil(7 - daysSinceLastGeneration);
-            return {
-              success: false,
-              error: `Free tier users can generate 1 database per week. Please wait ${daysRemaining} more day${daysRemaining > 1 ? 's' : ''}.`,
-              rateLimited: true,
-            };
-          }
-        }
+      // SECURITY: Enforce rate limit for free tier users (admins exempt)
+      const rateLimitResult = await checkRateLimit(ctx.userId, userTier);
+      if (!rateLimitResult.allowed) {
+        return {
+          success: false,
+          error: rateLimitResult.error,
+          rateLimited: true,
+        };
       }
 
       // Create job record

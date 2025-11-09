@@ -325,7 +325,7 @@ export default function DashboardPage() {
                 <div className="flex-1">
                   <span className="font-display text-sm">⚠️ FREE PLAN LIMIT:</span>
                   <span className="text-sm ml-2">
-                    You've reached the 1 AI database limit. Upgrade for unlimited databases.
+                    You&apos;ve reached the 1 AI database limit. Upgrade for unlimited databases.
                   </span>
                 </div>
                 <Button
