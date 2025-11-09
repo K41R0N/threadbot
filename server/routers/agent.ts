@@ -287,20 +287,48 @@ export const agentRouter = router({
     .mutation(async ({ ctx, input }) => {
       const supabase = getServerSupabase();
 
+      // SECURITY: Check subscription tier
+      const { data: subscription } = await supabase
+        .from('user_subscriptions')
+        .select('tier')
+        .eq('user_id', ctx.userId)
+        .single();
+
+      const userTier = subscription?.tier || 'free';
+
       // SECURITY: Check if user can use Claude
-      if (input.useClaude) {
-        const { data: subscription } = await supabase
-          .from('user_subscriptions')
-          .select('tier')
+      if (input.useClaude && userTier === 'free') {
+        return {
+          success: false,
+          error: 'Claude model requires Pro subscription',
+          requiresUpgrade: true,
+        };
+      }
+
+      // SECURITY: Enforce rate limit for free tier users
+      if (userTier === 'free') {
+        const { data: lastJob } = await supabase
+          .from('agent_generation_jobs')
+          .select('created_at, status')
           .eq('user_id', ctx.userId)
+          .eq('status', 'completed')
+          .order('created_at', { ascending: false })
+          .limit(1)
           .single();
 
-        if (!subscription || subscription.tier === 'free') {
-          return {
-            success: false,
-            error: 'Claude model requires Pro subscription',
-            requiresUpgrade: true,
-          };
+        if (lastJob) {
+          const lastGenerationDate = new Date(lastJob.created_at);
+          const now = new Date();
+          const daysSinceLastGeneration = (now.getTime() - lastGenerationDate.getTime()) / (1000 * 60 * 60 * 24);
+
+          if (daysSinceLastGeneration < 7) {
+            const daysRemaining = Math.ceil(7 - daysSinceLastGeneration);
+            return {
+              success: false,
+              error: `Free tier users can generate 1 database per week. Please wait ${daysRemaining} more day${daysRemaining > 1 ? 's' : ''}.`,
+              rateLimited: true,
+            };
+          }
         }
       }
 

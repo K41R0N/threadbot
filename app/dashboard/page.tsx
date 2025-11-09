@@ -8,6 +8,16 @@ import { trpc } from '@/lib/trpc';
 import { toast } from 'sonner';
 import { useState } from 'react';
 
+interface AgentDatabase {
+  monthKey: string;
+  name: string;
+  promptCount: number;
+  morningCount: number;
+  eveningCount: number;
+  createdAt: string | undefined;
+  status: 'active' | 'connected' | 'inactive';
+}
+
 export default function DashboardPage() {
   const router = useRouter();
   const { isSignedIn, isLoaded } = useUser();
@@ -42,7 +52,7 @@ export default function DashboardPage() {
   if (!config) return null;
 
   // Group prompts by month to show existing databases
-  const agentDatabases = allPrompts?.reduce((acc: any[], prompt) => {
+  const agentDatabases: AgentDatabase[] = allPrompts?.reduce<AgentDatabase[]>((acc, prompt) => {
     const monthKey = prompt.date.slice(0, 7); // "2025-11"
     if (!acc.find(db => db.monthKey === monthKey)) {
       const monthPrompts = allPrompts.filter(p => p.date.startsWith(monthKey));
@@ -270,7 +280,7 @@ export default function DashboardPage() {
               )}
 
               {/* Agent Databases */}
-              {agentDatabases.map((db: any) => (
+              {agentDatabases.map((db: AgentDatabase) => (
                 <div
                   key={db.monthKey}
                   className="border-2 border-black p-6 hover:bg-gray-50 cursor-pointer transition"

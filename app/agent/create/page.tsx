@@ -25,8 +25,8 @@ export default function CreateDatabasePage() {
   const { data: subscription } = trpc.agent.getSubscription.useQuery();
   const { data: rateLimitCheck } = trpc.agent.checkRateLimit.useQuery();
 
-  // Check if user is admin (you can add your user ID here)
-  const isAdmin = user?.id === 'user_2qVl3Z4r8Ys9Xx7Ww6Vv5Uu4Tt3' || user?.emailAddresses?.[0]?.emailAddress === 'your-admin-email@example.com';
+  // Check if user is admin
+  const isAdmin = user?.id === 'user_2qVl3Z4r8Ys9Xx7Ww6Vv5Uu4Tt3';
 
   const analyzeContext = trpc.agent.analyzeContext.useMutation({
     onSuccess: (data) => {
@@ -55,6 +55,12 @@ export default function CreateDatabasePage() {
       } else if (data.requiresUpgrade) {
         toast.error('Claude model requires Pro subscription');
         setStep('model');
+      } else if ((data as any).rateLimited) {
+        // Server-side rate limit triggered
+        toast.error(data.error || 'Rate limit exceeded');
+        setStep('model');
+        // Optionally redirect to dashboard
+        setTimeout(() => router.push('/dashboard'), 2000);
       } else {
         toast.error(data.error || 'Generation failed');
         setStep('model');
@@ -99,8 +105,9 @@ export default function CreateDatabasePage() {
       return;
     }
 
-    // Check rate limit (unless admin)
-    if (!isAdmin && rateLimitCheck && !rateLimitCheck.canGenerate) {
+    // Check rate limit (only for free tier, excluding admins)
+    const isPro = subscription?.tier === 'pro';
+    if (!isAdmin && !isPro && subscription?.tier === 'free' && rateLimitCheck && !rateLimitCheck.canGenerate) {
       setShowRateLimitWarning(true);
       return;
     }
@@ -142,8 +149,9 @@ export default function CreateDatabasePage() {
         endDate,
         useClaude,
       });
-    } catch (error: any) {
-      toast.error(error.message || 'Generation failed');
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error) || 'Generation failed';
+      toast.error(errorMessage);
       setStep('model');
     }
   };
@@ -517,7 +525,7 @@ export default function CreateDatabasePage() {
                   <div className="flex-1">
                     <div className="font-display text-lg mb-1">{generationProgress}</div>
                     <div className="text-sm text-gray-600">
-                      This will take 2-3 minutes. Please don't close this page.
+                      This will take 2-3 minutes. Please don&apos;t close this page.
                     </div>
                   </div>
                 </div>
@@ -529,7 +537,7 @@ export default function CreateDatabasePage() {
                   <li>• AI is analyzing your brand context</li>
                   <li>• Generating 4 weekly themes for the month</li>
                   <li>• Creating 60 unique prompts (30 mornings + 30 evenings)</li>
-                  <li>• You'll be able to edit any prompt after generation</li>
+                  <li>• You&apos;ll be able to edit any prompt after generation</li>
                 </ul>
               </div>
 
