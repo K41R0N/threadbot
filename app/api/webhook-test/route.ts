@@ -1,14 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSupabase } from '@/lib/supabase';
+import { auth } from '@clerk/nextjs/server';
 
 // Debug endpoint to test webhook configuration
+// SECURITY: Only accessible by authenticated user checking their own data
 export async function GET(request: NextRequest) {
   try {
-    const userId = request.nextUrl.searchParams.get('userId');
+    // SECURITY: Verify user is authenticated
+    const { userId: authenticatedUserId } = await auth();
 
-    if (!userId) {
-      return NextResponse.json({ error: 'userId parameter required' }, { status: 400 });
+    if (!authenticatedUserId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+
+    const requestedUserId = request.nextUrl.searchParams.get('userId');
+
+    // SECURITY: User can only check their own webhook configuration
+    if (requestedUserId && requestedUserId !== authenticatedUserId) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    const userId = authenticatedUserId;
 
     const supabase = getServerSupabase();
 
