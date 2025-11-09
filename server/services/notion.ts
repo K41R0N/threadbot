@@ -13,9 +13,9 @@ export class NotionService {
    */
   async queryDatabase(databaseId: string, date: string, type: 'morning' | 'evening') {
     try {
-      // Notion SDK v5.x uses dataSources.query instead of databases.query
-      const response = await (this.client.dataSources as any).query({
-        data_source_id: databaseId,
+      // Query the Notion database
+      const response = await this.client.databases.query({
+        database_id: databaseId,
         filter: {
           and: [
             {
