@@ -4,8 +4,10 @@
 /FIXES_APPLIED.md
 /todo.md
 /DEPLOYMENT.md
+/SECURITY_AUDIT.md
 /LICENSE
 /package-lock.json
+
 
 # dependencies
 /node_modules
