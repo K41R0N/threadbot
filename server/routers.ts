@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { getServerSupabase } from '@/lib/supabase';
 import { TelegramService } from './services/telegram';
 import { BotService } from './services/bot';
+import { agentRouter } from './routers/agent';
 
 export const appRouter = router({
   bot: router({
@@ -231,6 +232,9 @@ export const appRouter = router({
         return await BotService.sendScheduledPrompt(config, input.type);
       }),
   }),
+
+  // Agent router for AI-powered prompt generation
+  agent: agentRouter,
 });
 
 export type AppRouter = typeof appRouter;
