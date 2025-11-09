@@ -163,7 +163,7 @@ Return 4 weekly themes that follow this narrative arc but are customized to the 
         maxTokens: 2000,
       });
 
-      return object.themes;
+      return (object as z.infer<typeof WeeklyThemesSchema>).themes;
     } catch (error: any) {
       SafeLogger.error('Theme generation error:', error);
       throw new Error(`Failed to generate themes: ${error.message}`);
@@ -226,8 +226,10 @@ TONE: ${contextAnalysis.brandVoice}`,
         maxTokens: 1000,
       });
 
+      const typedObject = object as z.infer<typeof DailyPromptSchema>;
+
       return {
-        ...object,
+        ...typedObject,
         date,
         name: `${formattedDate.split(',')[0]} ${date} - ${postType.charAt(0).toUpperCase() + postType.slice(1)}`,
         week_theme: weekTheme.theme_title,
