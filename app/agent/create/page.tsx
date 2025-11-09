@@ -8,6 +8,20 @@ import { Input } from '@/components/ui/input';
 import { trpc } from '@/lib/trpc';
 import { toast } from 'sonner';
 
+interface AnalysisResult {
+  coreThemes?: string[];
+  brandVoice?: string;
+  targetAudience?: string;
+}
+
+interface GenerationMutationResponse {
+  success: boolean;
+  error?: string;
+  needsCredits?: boolean;
+  totalPrompts?: number;
+  jobId?: string;
+}
+
 export default function CreateDatabasePage() {
   const router = useRouter();
   const { isSignedIn } = useUser();
@@ -18,8 +32,9 @@ export default function CreateDatabasePage() {
   const [additionalContext, setAdditionalContext] = useState('');
   const [startDate, setStartDate] = useState('');
   const [useClaude, setUseClaude] = useState(false);
-  const [analysis, setAnalysis] = useState<any>(null);
-  const [jobId, setJobId] = useState<string | null>(null);
+  const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
+  const [generationProgress, setGenerationProgress] = useState('Initializing...');
+  const [showCreditWarning, setShowCreditWarning] = useState(false);
 
   const { data: subscription } = trpc.agent.getSubscription.useQuery();
 
@@ -38,29 +53,41 @@ export default function CreateDatabasePage() {
     },
   });
 
-  const generateThemes = trpc.agent.generateThemes.useMutation();
-  const generatePrompts = trpc.agent.generatePrompts.useMutation({
+  const generateThemes = trpc.agent.generateThemes.useMutation({
     onSuccess: (data) => {
-      if (data.success) {
-        const monthYear = startDate.slice(0, 7);
-        toast.success(`Generated ${data.totalPrompts} prompts!`);
-        router.push(`/agent/database/${monthYear}`);
-      } else if (data.requiresUpgrade) {
-        toast.error('Claude model requires Pro subscription');
-      } else {
-        toast.error(data.error || 'Generation failed');
+      const response = data as GenerationMutationResponse;
+      if (!response.success && response.needsCredits) {
+        // No credits remaining
+        toast.error(response.error || 'No credits remaining');
+        setStep('model');
+        setShowCreditWarning(true);
       }
     },
   });
-
-  // Poll job status
-  const { data: jobStatus } = trpc.agent.getJobStatus.useQuery(
-    { jobId: jobId! },
-    {
-      enabled: !!jobId && step === 'generating',
-      refetchInterval: 2000,
-    }
-  );
+  const generatePrompts = trpc.agent.generatePrompts.useMutation({
+    onSuccess: (data) => {
+      const response = data as GenerationMutationResponse;
+      if (response.success) {
+        const monthYear = startDate.slice(0, 7);
+        toast.success(`Generated ${response.totalPrompts} prompts!`);
+        setTimeout(() => {
+          router.push(`/agent/database/${monthYear}`);
+        }, 1500);
+      } else if (response.needsCredits) {
+        // No credits remaining
+        toast.error(response.error || 'No credits remaining');
+        setStep('model');
+        setShowCreditWarning(true);
+      } else {
+        toast.error(response.error || 'Generation failed');
+        setStep('model');
+      }
+    },
+    onError: (error) => {
+      toast.error(error.message);
+      setStep('model');
+    },
+  });
 
   const addBrandUrl = () => setBrandUrls([...brandUrls, '']);
   const removeBrandUrl = (index: number) => {
@@ -95,13 +122,15 @@ export default function CreateDatabasePage() {
       return;
     }
 
-    // Check if user can use Claude
-    if (useClaude && subscription?.tier === 'free') {
-      toast.error('Claude model requires Pro subscription');
+    // Warn if no credits and trying to use Claude
+    if (useClaude && (subscription?.claude_credits || 0) === 0) {
+      setShowCreditWarning(true);
       return;
     }
 
+    // Lock the user in generating mode
     setStep('generating');
+    setGenerationProgress('Generating weekly themes...');
 
     // Calculate end date (30 days from start)
     const start = new Date(startDate);
@@ -109,23 +138,32 @@ export default function CreateDatabasePage() {
     end.setDate(end.getDate() + 29); // 30 days total
     const endDate = end.toISOString().split('T')[0];
 
-    // Generate themes first
-    const themesResult = await generateThemes.mutateAsync({
-      userPreferences: additionalContext || 'Follow the methodology provided in the context.',
-      useClaude,
-    });
+    try {
+      // Generate themes first
+      const themesResult = await generateThemes.mutateAsync({
+        userPreferences: additionalContext || 'Follow the methodology provided in the context.',
+        useClaude,
+      });
 
-    if (!themesResult.success) {
+      if (!themesResult.success) {
+        setStep('model');
+        toast.error(themesResult.error || 'Failed to generate themes');
+        return;
+      }
+
+      setGenerationProgress('Generating 60 prompts (30 mornings + 30 evenings)...');
+
+      // Then generate all prompts
+      await generatePrompts.mutateAsync({
+        startDate,
+        endDate,
+        useClaude,
+      });
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error) || 'Generation failed';
+      toast.error(errorMessage);
       setStep('model');
-      return;
     }
-
-    // Then generate all prompts
-    generatePrompts.mutate({
-      startDate,
-      endDate,
-      useClaude,
-    });
   };
 
   if (!isSignedIn) {
@@ -135,14 +173,90 @@ export default function CreateDatabasePage() {
 
   return (
     <div className="min-h-screen bg-white">
-      {/* Header */}
+      {/* Header with Navigation */}
       <div className="border-b-2 border-black">
         <div className="container mx-auto px-4 py-6">
-          <h1 className="text-4xl font-display">CREATE DATABASE</h1>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-4">
+              <Button
+                variant="outline"
+                onClick={() => router.push('/dashboard')}
+                disabled={step === 'generating'}
+              >
+                ← BACK
+              </Button>
+              <h1 className="text-4xl font-display">CREATE AI DATABASE</h1>
+            </div>
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                onClick={() => router.push('/settings')}
+              >
+                SETTINGS
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => router.push('/dashboard')}
+              >
+                DASHBOARD
+              </Button>
+            </div>
+          </div>
+
+          {/* Breadcrumb */}
+          <div className="text-sm text-gray-600 mb-4">
+            <span className="cursor-pointer hover:text-black" onClick={() => router.push('/dashboard')}>Dashboard</span>
+            <span className="mx-2">→</span>
+            <span>Create Database</span>
+          </div>
+
+          {/* Progress Indicator */}
+          <div className="mt-4 flex items-center gap-2">
+            <div className={`px-3 py-1 text-sm font-display ${step === 'context' ? 'bg-black text-white' : 'bg-gray-200'}`}>
+              1. CONTEXT
+            </div>
+            <div className="text-gray-400">→</div>
+            <div className={`px-3 py-1 text-sm font-display ${step === 'model' ? 'bg-black text-white' : 'bg-gray-200'}`}>
+              2. MODEL
+            </div>
+            <div className="text-gray-400">→</div>
+            <div className={`px-3 py-1 text-sm font-display ${step === 'generating' ? 'bg-black text-white' : 'bg-gray-200'}`}>
+              3. GENERATE
+            </div>
+          </div>
         </div>
       </div>
 
       <div className="container mx-auto px-4 py-12 max-w-4xl">
+        {/* Credit Warning Modal */}
+        {showCreditWarning && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <div className="bg-white border-4 border-black p-8 max-w-lg">
+              <h2 className="text-3xl font-display mb-4">NO CLAUDE CREDITS</h2>
+              <p className="mb-6">
+                You have <span className="font-display">{subscription?.claude_credits || 0} credits</span> remaining.
+                Claude Sonnet 4.5 requires 1 credit per generation.
+              </p>
+              <div className="border-2 border-black p-4 mb-6 bg-gray-50">
+                <div className="font-display mb-2">YOUR OPTIONS:</div>
+                <ul className="list-disc list-inside space-y-1 text-sm">
+                  <li>Use DeepSeek R1 instead (free, unlimited)</li>
+                  <li>Purchase 3 credits for $9</li>
+                  <li>Edit your existing database manually</li>
+                </ul>
+              </div>
+              <div className="flex gap-4">
+                <Button variant="outline" onClick={() => setShowCreditWarning(false)} className="flex-1">
+                  CANCEL
+                </Button>
+                <Button onClick={() => router.push('/dashboard')} className="flex-1">
+                  BUY CREDITS
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Step: Context */}
         {step === 'context' && (
           <div className="border-2 border-black p-8">
@@ -372,6 +486,16 @@ export default function CreateDatabasePage() {
                 />
               </div>
 
+              {/* Free Tier Info */}
+              {subscription?.tier === 'free' && (
+                <div className="border-2 border-yellow-500 bg-yellow-50 p-4 mb-6">
+                  <div className="font-display text-sm mb-1">⚠️ FREE TIER LIMIT</div>
+                  <div className="text-sm text-gray-700">
+                    You can generate 1 database per week. After generation, you can manually edit prompts anytime.
+                  </div>
+                </div>
+              )}
+
               <div className="flex gap-4">
                 <Button
                   variant="outline"
@@ -394,42 +518,38 @@ export default function CreateDatabasePage() {
           </div>
         )}
 
-        {/* Step: Generating */}
+        {/* Step: Generating (LOCKED - No Going Back) */}
         {step === 'generating' && (
           <div className="border-2 border-black p-8">
-            <h2 className="text-3xl font-display mb-6">GENERATING PROMPTS</h2>
+            <h2 className="text-3xl font-display mb-6">GENERATING YOUR DATABASE</h2>
 
             <div className="space-y-6">
-              <div>
-                <div className="font-display text-sm mb-2">STATUS</div>
-                <div className="text-xl capitalize">
-                  {jobStatus?.status?.replace('_', ' ') || 'Initializing...'}
-                </div>
-              </div>
-
-              {jobStatus?.total_prompts && (
-                <div>
-                  <div className="font-display text-sm mb-2">PROGRESS</div>
-                  <div className="text-xl">{jobStatus.total_prompts} prompts generated</div>
-                </div>
-              )}
-
               <div className="border-2 border-black p-6 bg-gray-50">
                 <div className="flex items-center gap-4">
-                  <div className="animate-spin text-4xl">⚙</div>
-                  <div>
-                    <div className="font-display">GENERATING YOUR PROMPT DATABASE</div>
+                  <div className="animate-spin text-4xl">⚙️</div>
+                  <div className="flex-1">
+                    <div className="font-display text-lg mb-1">{generationProgress}</div>
                     <div className="text-sm text-gray-600">
-                      This may take 2-3 minutes. Don't close this page.
+                      This will take 2-3 minutes. Please don&apos;t close this page.
                     </div>
                   </div>
                 </div>
               </div>
 
-              {jobStatus?.error_message && (
+              <div className="border-2 border-blue-500 bg-blue-50 p-4">
+                <div className="font-display text-sm mb-2">💡 WHILE YOU WAIT</div>
+                <ul className="text-sm space-y-1 text-gray-700">
+                  <li>• AI is analyzing your brand context</li>
+                  <li>• Generating 4 weekly themes for the month</li>
+                  <li>• Creating 60 unique prompts (30 mornings + 30 evenings)</li>
+                  <li>• You&apos;ll be able to edit any prompt after generation</li>
+                </ul>
+              </div>
+
+              {generatePrompts.isError && (
                 <div className="border-2 border-red-500 p-4 bg-red-50">
                   <div className="font-display text-red-700">ERROR</div>
-                  <div className="text-sm text-red-600">{jobStatus.error_message}</div>
+                  <div className="text-sm text-red-600">Generation failed. Please try again.</div>
                 </div>
               )}
             </div>

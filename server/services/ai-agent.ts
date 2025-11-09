@@ -70,7 +70,7 @@ export interface DailyPrompt {
 export class AIAgentService {
   /**
    * Step 1: Analyze user context (URLs, brand voice, etc.)
-   * Uses DeepSeek R1 for reasoning (free)
+   * Uses DeepSeek R1 for reasoning
    */
   static async analyzeContext(
     brandUrls: string[],

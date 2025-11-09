@@ -9,14 +9,62 @@ import { getServerSupabase } from '@/lib/supabase';
 import { AIAgentService } from '../services/ai-agent';
 import { SafeLogger } from '@/lib/logger';
 
+// Admin user ID - checked server-side only
+const ADMIN_USER_ID = 'user_2qVl3Z4r8Ys9Xx7Ww6Vv5Uu4Tt3';
+
+/**
+ * Check if user is an admin
+ */
+function isAdmin(userId: string): boolean {
+  return userId === ADMIN_USER_ID;
+}
+
+/**
+ * Check if user has credits for Claude generation
+ * Free tier: Can use DeepSeek unlimited (no credit check)
+ * Paid: Each purchase = 3 credits for Claude generations
+ * Admins are exempt from credit checks
+ */
+async function checkCredits(userId: string, useClaude: boolean) {
+  // Admins always allowed
+  if (isAdmin(userId)) {
+    return { allowed: true };
+  }
+
+  // Free tier using DeepSeek: unlimited, no credit check
+  if (!useClaude) {
+    return { allowed: true };
+  }
+
+  // Using Claude: check credits
+  const supabase = getServerSupabase();
+  const { data: subscription } = await supabase
+    .from('user_subscriptions')
+    .select('claude_credits')
+    .eq('user_id', userId)
+    .single();
+
+  const credits = subscription?.claude_credits || 0;
+
+  if (credits <= 0) {
+    return {
+      allowed: false,
+      error: 'No Claude credits remaining. Purchase more credits to generate with Claude.',
+      needsCredits: true,
+    };
+  }
+
+  return { allowed: true, credits };
+}
+
 export const agentRouter = router({
-  // Get user's subscription tier
+  // Get user's subscription and credits
   getSubscription: protectedProcedure.query(async ({ ctx }) => {
     const supabase = getServerSupabase();
 
     const { data, error } = await supabase
       .from('user_subscriptions')
-      .select('tier, current_period_end')
+      .select('claude_credits, tier, current_period_end')
       .eq('user_id', ctx.userId)
       .single();
 
@@ -25,8 +73,8 @@ export const agentRouter = router({
       SafeLogger.error('Get subscription error:', error);
     }
 
-    // Default to free tier if no subscription
-    return data || { tier: 'free', current_period_end: null };
+    // Default to free tier with 0 credits if no subscription
+    return data || { claude_credits: 0, tier: 'free', current_period_end: null };
   }),
 
   // Get user's generation context
@@ -129,21 +177,14 @@ export const agentRouter = router({
     .mutation(async ({ ctx, input }) => {
       const supabase = getServerSupabase();
 
-      // SECURITY: Check if user can use Claude
-      if (input.useClaude) {
-        const { data: subscription } = await supabase
-          .from('user_subscriptions')
-          .select('tier')
-          .eq('user_id', ctx.userId)
-          .single();
-
-        if (!subscription || subscription.tier === 'free') {
-          return {
-            success: false,
-            error: 'Claude model requires Pro subscription',
-            requiresUpgrade: true,
-          };
-        }
+      // SECURITY: Check if user has credits for Claude generation
+      const creditCheck = await checkCredits(ctx.userId, input.useClaude);
+      if (!creditCheck.allowed) {
+        return {
+          success: false,
+          error: creditCheck.error,
+          needsCredits: creditCheck.needsCredits,
+        };
       }
 
       // Get user context
@@ -253,21 +294,14 @@ export const agentRouter = router({
     .mutation(async ({ ctx, input }) => {
       const supabase = getServerSupabase();
 
-      // SECURITY: Check if user can use Claude
-      if (input.useClaude) {
-        const { data: subscription } = await supabase
-          .from('user_subscriptions')
-          .select('tier')
-          .eq('user_id', ctx.userId)
-          .single();
-
-        if (!subscription || subscription.tier === 'free') {
-          return {
-            success: false,
-            error: 'Claude model requires Pro subscription',
-            requiresUpgrade: true,
-          };
-        }
+      // SECURITY: Check if user has credits for Claude generation
+      const creditCheck = await checkCredits(ctx.userId, input.useClaude);
+      if (!creditCheck.allowed) {
+        return {
+          success: false,
+          error: creditCheck.error,
+          needsCredits: creditCheck.needsCredits,
+        };
       }
 
       // Create job record
@@ -348,6 +382,12 @@ export const agentRouter = router({
             total_prompts: prompts.length,
           })
           .eq('id', job.id);
+
+        // Deduct 1 credit for Claude generations (admins exempt)
+        if (input.useClaude && !isAdmin(ctx.userId)) {
+          await supabase
+            .rpc('decrement_claude_credits', { user_id_param: ctx.userId });
+        }
 
         return {
           success: true,

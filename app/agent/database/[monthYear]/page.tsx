@@ -118,15 +118,13 @@ export default function DatabasePage({ params }: { params: Promise<{ monthYear: 
       {/* Header */}
       <div className="border-b-2 border-black">
         <div className="container mx-auto px-4 py-6">
-          <div className="flex justify-between items-center">
-            <div>
+          <div className="flex justify-between items-center mb-4">
+            <div className="flex items-center gap-4">
               <Button
                 variant="outline"
-                onClick={() => router.push('/agent')}
-                className="mb-2"
-                size="sm"
+                onClick={() => router.push('/dashboard')}
               >
-                ← BACK TO DATABASES
+                ← BACK
               </Button>
               <h1 className="text-4xl font-display">{monthName}</h1>
             </div>
@@ -136,13 +134,25 @@ export default function DatabasePage({ params }: { params: Promise<{ monthYear: 
                 EXPORT CSV
               </Button>
               <Button
-                onClick={() => {
-                  toast.info('Connect to Telegram coming soon!');
-                }}
+                variant="outline"
+                onClick={() => router.push('/settings')}
               >
-                CONNECT TO TELEGRAM
+                SETTINGS
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => router.push('/dashboard')}
+              >
+                DASHBOARD
               </Button>
             </div>
+          </div>
+
+          {/* Breadcrumb */}
+          <div className="text-sm text-gray-600">
+            <span className="cursor-pointer hover:text-black" onClick={() => router.push('/dashboard')}>Dashboard</span>
+            <span className="mx-2">→</span>
+            <span>{monthName}</span>
           </div>
         </div>
       </div>
