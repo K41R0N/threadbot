@@ -20,7 +20,10 @@ export function Providers({ children }: { children: React.ReactNode }) {
     trpc.createClient({
       links: [
         httpBatchLink({
-          url: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/trpc`,
+          // Use relative URL in browser, absolute URL in SSR
+          url: typeof window !== 'undefined'
+            ? '/api/trpc'
+            : `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/trpc`,
           transformer: superjson,
         }),
       ],
