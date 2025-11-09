@@ -14,7 +14,7 @@ export const appRouter = router({
       // SECURITY: Only select non-sensitive fields. Never send tokens to client!
       const { data, error } = await supabase
         .from('bot_configs')
-        .select('id, user_id, notion_database_id, telegram_chat_id, timezone, morning_time, evening_time, is_active, created_at, updated_at')
+        .select('id, user_id, notion_database_id, telegram_chat_id, timezone, morning_time, evening_time, is_active, prompt_source, created_at, updated_at')
         .eq('user_id', ctx.userId)
         .single();
 
@@ -69,8 +69,9 @@ export const appRouter = router({
             morning_time: input.morningTime,
             evening_time: input.eveningTime,
             is_active: input.isActive,
+            prompt_source: 'notion', // Default to notion for new configs
           })
-          .select('id, user_id, notion_database_id, telegram_chat_id, timezone, morning_time, evening_time, is_active, created_at, updated_at')
+          .select('id, user_id, notion_database_id, telegram_chat_id, timezone, morning_time, evening_time, is_active, prompt_source, created_at, updated_at')
           .single();
 
         if (error) {
@@ -99,6 +100,7 @@ export const appRouter = router({
         morningTime: z.string().optional(),
         eveningTime: z.string().optional(),
         isActive: z.boolean().optional(),
+        promptSource: z.enum(['notion', 'agent']).optional(),
       }))
       .mutation(async ({ ctx, input }) => {
         const supabase = getServerSupabase();
@@ -112,12 +114,13 @@ export const appRouter = router({
         if (input.morningTime) updateData.morning_time = input.morningTime;
         if (input.eveningTime) updateData.evening_time = input.eveningTime;
         if (input.isActive !== undefined) updateData.is_active = input.isActive;
+        if (input.promptSource) updateData.prompt_source = input.promptSource;
         
         const { data, error } = await supabase
           .from('bot_configs')
           .update(updateData)
           .eq('user_id', ctx.userId)
-          .select('id, user_id, notion_database_id, telegram_chat_id, timezone, morning_time, evening_time, is_active, created_at, updated_at')
+          .select('id, user_id, notion_database_id, telegram_chat_id, timezone, morning_time, evening_time, is_active, prompt_source, created_at, updated_at')
           .single();
 
         if (error) {

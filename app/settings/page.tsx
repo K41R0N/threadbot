@@ -23,6 +23,7 @@ export default function SettingsPage() {
   const [timezone, setTimezone] = useState('');
   const [morningTime, setMorningTime] = useState('');
   const [eveningTime, setEveningTime] = useState('');
+  const [promptSource, setPromptSource] = useState<'notion' | 'agent'>('notion');
 
   const [showNotionToken, setShowNotionToken] = useState(false);
   const [showTelegramToken, setShowTelegramToken] = useState(false);
@@ -34,6 +35,7 @@ export default function SettingsPage() {
       setTimezone(config.timezone || 'UTC');
       setMorningTime(config.morning_time || '09:00');
       setEveningTime(config.evening_time || '18:00');
+      setPromptSource(config.prompt_source || 'notion');
     }
   }, [config]);
 
@@ -68,11 +70,15 @@ export default function SettingsPage() {
       timezone,
       morningTime,
       eveningTime,
+      promptSource,
     };
 
-    // Only update if user provided new values
-    if (notionToken) updateData.notionToken = notionToken;
-    if (databaseId !== config.notion_database_id) updateData.notionDatabaseId = databaseId;
+    // Only update Notion settings if using Notion source
+    if (promptSource === 'notion') {
+      if (notionToken) updateData.notionToken = notionToken;
+      if (databaseId !== config.notion_database_id) updateData.notionDatabaseId = databaseId;
+    }
+
     if (telegramChatId !== config.telegram_chat_id) updateData.telegramChatId = telegramChatId;
 
     // If telegram bot token is updated, reconfigure webhook
@@ -113,19 +119,72 @@ export default function SettingsPage() {
     <div className="min-h-screen bg-white">
       <div className="border-b-2 border-black">
         <div className="container mx-auto px-4 py-6">
-          <div className="flex items-center gap-4">
-            <Button variant="outline" onClick={() => router.push('/dashboard')}>
-              ← BACK
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <Button variant="outline" onClick={() => router.push('/dashboard')}>
+                ← BACK
+              </Button>
+              <h1 className="text-4xl font-display">SETTINGS</h1>
+            </div>
+            <Button
+              variant="outline"
+              onClick={() => router.push('/agent')}
+            >
+              AGENT
             </Button>
-            <h1 className="text-4xl font-display">SETTINGS</h1>
           </div>
         </div>
       </div>
 
       <div className="container mx-auto px-4 py-12 max-w-3xl">
         <form onSubmit={handleSubmit} className="space-y-8">
-          {/* Notion Settings */}
+          {/* Prompt Source Selection */}
           <div className="border-2 border-black p-8">
+            <h2 className="text-3xl font-display mb-4">PROMPT SOURCE</h2>
+            <p className="text-gray-600 mb-6">
+              Choose where your daily prompts come from
+            </p>
+
+            <div className="space-y-4">
+              <label className="flex items-start gap-4 p-4 border-2 border-black cursor-pointer hover:bg-gray-50 transition-colors">
+                <input
+                  type="radio"
+                  name="promptSource"
+                  value="notion"
+                  checked={promptSource === 'notion'}
+                  onChange={(e) => setPromptSource(e.target.value as 'notion' | 'agent')}
+                  className="mt-1"
+                />
+                <div className="flex-1">
+                  <div className="font-display text-lg mb-1">NOTION DATABASE</div>
+                  <div className="text-sm text-gray-600">
+                    Fetch prompts from your Notion database. You manage prompts manually in Notion.
+                  </div>
+                </div>
+              </label>
+
+              <label className="flex items-start gap-4 p-4 border-2 border-black cursor-pointer hover:bg-gray-50 transition-colors">
+                <input
+                  type="radio"
+                  name="promptSource"
+                  value="agent"
+                  checked={promptSource === 'agent'}
+                  onChange={(e) => setPromptSource(e.target.value as 'notion' | 'agent')}
+                  className="mt-1"
+                />
+                <div className="flex-1">
+                  <div className="font-display text-lg mb-1">AI AGENT</div>
+                  <div className="text-sm text-gray-600">
+                    AI-generated prompts based on your brand context. Visit the Agent tab to set up.
+                  </div>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          {/* Notion Settings */}
+          {promptSource === 'notion' && (
+            <div className="border-2 border-black p-8">
             <h2 className="text-3xl font-display mb-6">NOTION</h2>
 
             <div className="space-y-6">
@@ -158,11 +217,12 @@ export default function SettingsPage() {
                   placeholder="abc123def456..."
                   value={databaseId}
                   onChange={(e) => setDatabaseId(e.target.value)}
-                  required
+                  required={promptSource === 'notion'}
                 />
               </div>
             </div>
           </div>
+          )}
 
           {/* Telegram Settings */}
           <div className="border-2 border-black p-8">

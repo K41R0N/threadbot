@@ -61,6 +61,12 @@ export default function DashboardPage() {
         <div className="container mx-auto px-4 py-6 flex justify-between items-center">
           <h1 className="text-4xl font-display">THREADBOT</h1>
           <div className="flex items-center gap-4">
+            <Button
+              variant="outline"
+              onClick={() => router.push('/agent')}
+            >
+              AGENT
+            </Button>
             <UserButton />
           </div>
         </div>
@@ -120,6 +126,13 @@ export default function DashboardPage() {
           </div>
           
           <div className="space-y-6">
+            <div>
+              <h3 className="font-display text-sm mb-2 text-gray-600">PROMPT SOURCE</h3>
+              <p className="text-xl uppercase font-display">
+                {config.prompt_source === 'agent' ? '🤖 AI AGENT' : '📝 NOTION DATABASE'}
+              </p>
+            </div>
+
             <div className="grid grid-cols-2 gap-6">
               <div>
                 <h3 className="font-display text-sm mb-2 text-gray-600">MORNING TIME</h3>
@@ -136,12 +149,14 @@ export default function DashboardPage() {
               <p className="text-xl">{config.timezone}</p>
             </div>
 
-            <div>
-              <h3 className="font-display text-sm mb-2 text-gray-600">NOTION DATABASE</h3>
-              <p className="font-mono text-sm bg-gray-100 p-3 break-all">
-                {config.notion_database_id}
-              </p>
-            </div>
+            {config.prompt_source === 'notion' && (
+              <div>
+                <h3 className="font-display text-sm mb-2 text-gray-600">NOTION DATABASE</h3>
+                <p className="font-mono text-sm bg-gray-100 p-3 break-all">
+                  {config.notion_database_id}
+                </p>
+              </div>
+            )}
 
             <div>
               <h3 className="font-display text-sm mb-2 text-gray-600">TELEGRAM CHAT ID</h3>
