@@ -3,12 +3,9 @@
 /CLAUDE.md
 /FIXES_APPLIED.md
 /todo.md
-/README.md
 /DEPLOYMENT.md
 /LICENSE
 /package-lock.json
-/package.json
-/pnpm-lock.yaml
 
 # dependencies
 /node_modules
