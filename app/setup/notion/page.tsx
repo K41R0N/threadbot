@@ -40,8 +40,7 @@ export default function SetupNotionPage() {
     createConfig.mutate({
       notionToken,
       notionDatabaseId: databaseId,
-      telegramBotToken: '',
-      telegramChatId: '',
+      // Telegram fields added in step 2
       timezone: 'UTC',
       morningTime: '09:00',
       eveningTime: '18:00',
