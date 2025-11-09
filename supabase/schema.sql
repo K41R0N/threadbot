@@ -6,8 +6,8 @@ CREATE TABLE IF NOT EXISTS bot_configs (
   user_id TEXT NOT NULL UNIQUE, -- Clerk user ID
   notion_token TEXT NOT NULL,
   notion_database_id TEXT NOT NULL,
-  telegram_bot_token TEXT NOT NULL,
-  telegram_chat_id TEXT NOT NULL,
+  telegram_bot_token TEXT, -- Nullable for multi-step onboarding
+  telegram_chat_id TEXT,   -- Nullable for multi-step onboarding
   timezone TEXT NOT NULL DEFAULT 'UTC',
   morning_time TEXT NOT NULL DEFAULT '12:00',
   evening_time TEXT NOT NULL DEFAULT '17:00',
@@ -71,3 +71,12 @@ CREATE POLICY "Users can insert own bot state" ON bot_state
 
 CREATE POLICY "Users can update own bot state" ON bot_state
   FOR UPDATE USING (auth.jwt() ->> 'sub' = user_id);
+
+-- Constraint: Ensure Telegram config is complete (both token and chat_id set together)
+ALTER TABLE bot_configs
+  ADD CONSTRAINT telegram_config_complete
+  CHECK (
+    (telegram_bot_token IS NULL AND telegram_chat_id IS NULL)
+    OR
+    (telegram_bot_token IS NOT NULL AND telegram_chat_id IS NOT NULL)
+  );
