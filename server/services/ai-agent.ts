@@ -70,7 +70,7 @@ export interface DailyPrompt {
 export class AIAgentService {
   /**
    * Step 1: Analyze user context (URLs, brand voice, etc.)
-   * Uses DeepSeek R1 for reasoning (free)
+   * Uses DeepSeek Chat (cheaper/free tier friendly)
    */
   static async analyzeContext(
     brandUrls: string[],
@@ -79,7 +79,7 @@ export class AIAgentService {
   ): Promise<ContextAnalysis> {
     try {
       const { text } = await generateText({
-        model: deepseek('deepseek-reasoner'), // R1 model
+        model: deepseek('deepseek-chat'), // Regular chat model (cheaper)
         prompt: `Analyze the following content sources and extract:
 
 1. Core Themes (5-7 main topics/pillars)
