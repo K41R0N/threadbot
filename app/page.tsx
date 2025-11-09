@@ -38,7 +38,7 @@ export default function Home() {
         </p>
         <SignedOut>
           <SignUpButton mode="modal">
-            <Button size="lg">GET STARTED FREE</Button>
+            <Button size="lg" className="bg-white text-black border-white hover:bg-white hover:text-black">GET STARTED FREE</Button>
           </SignUpButton>
         </SignedOut>
         <SignedIn>
