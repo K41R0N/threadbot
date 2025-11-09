@@ -29,6 +29,40 @@ export const agentRouter = router({
     return data || { tier: 'free', current_period_end: null };
   }),
 
+  // Check if user can generate (rate limiting)
+  checkRateLimit: protectedProcedure.query(async ({ ctx }) => {
+    const supabase = getServerSupabase();
+
+    // Get last generation job for this user
+    const { data: lastJob } = await supabase
+      .from('agent_generation_jobs')
+      .select('created_at, status')
+      .eq('user_id', ctx.userId)
+      .eq('status', 'completed')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single();
+
+    if (!lastJob) {
+      // No previous generation, can generate
+      return {
+        canGenerate: true,
+        lastGeneration: null,
+      };
+    }
+
+    // Check if last generation was within 7 days
+    const lastGenerationDate = new Date(lastJob.created_at);
+    const now = new Date();
+    const daysSinceLastGeneration = (now.getTime() - lastGenerationDate.getTime()) / (1000 * 60 * 60 * 24);
+
+    return {
+      canGenerate: daysSinceLastGeneration >= 7,
+      lastGeneration: lastJob.created_at,
+      daysRemaining: Math.max(0, Math.ceil(7 - daysSinceLastGeneration)),
+    };
+  }),
+
   // Get user's generation context
   getContext: protectedProcedure.query(async ({ ctx }) => {
     const supabase = getServerSupabase();

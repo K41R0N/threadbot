@@ -14,6 +14,8 @@ export default function AgentPage() {
 
   const { data: subscription } = trpc.agent.getSubscription.useQuery();
   const { data: context } = trpc.agent.getContext.useQuery();
+  const { data: rateLimitCheck } = trpc.agent.checkRateLimit.useQuery();
+  const { data: botConfig } = trpc.bot.getConfig.useQuery();
 
   // Get all user's prompt databases (grouped by month)
   const { data: allPrompts } = trpc.agent.getPrompts.useQuery({});
@@ -23,11 +25,21 @@ export default function AgentPage() {
     const monthKey = prompt.date.slice(0, 7); // "2025-11"
     if (!acc.find(db => db.monthKey === monthKey)) {
       const monthPrompts = allPrompts.filter(p => p.date.startsWith(monthKey));
+      const morningCount = monthPrompts.filter(p => p.post_type === 'morning').length;
+      const eveningCount = monthPrompts.filter(p => p.post_type === 'evening').length;
+
+      // Check if this database is connected to the bot
+      const isConnected = botConfig?.prompt_source === 'agent';
+      const isActive = isConnected && botConfig?.is_active;
+
       acc.push({
         monthKey,
         name: new Date(monthKey + '-01').toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
         promptCount: monthPrompts.length,
+        morningCount,
+        eveningCount,
         createdAt: monthPrompts[0]?.created_at,
+        status: isActive ? 'active' : (isConnected ? 'connected' : 'inactive'),
       });
     }
     return acc;
@@ -40,7 +52,25 @@ export default function AgentPage() {
       setShowUpgrade(true);
       return;
     }
+
+    // Check rate limit for free users
+    if (subscription?.tier === 'free' && rateLimitCheck && !rateLimitCheck.canGenerate) {
+      toast.error(`Rate limit: Please wait ${rateLimitCheck.daysRemaining} more days`);
+      return;
+    }
+
     router.push('/agent/create');
+  };
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'active':
+        return <span className="px-3 py-1 bg-green-500 text-white text-xs font-display">● ACTIVE</span>;
+      case 'connected':
+        return <span className="px-3 py-1 bg-blue-500 text-white text-xs font-display">● CONNECTED</span>;
+      default:
+        return <span className="px-3 py-1 bg-gray-300 text-gray-700 text-xs font-display">INACTIVE</span>;
+    }
   };
 
   if (!isSignedIn) {
@@ -50,31 +80,66 @@ export default function AgentPage() {
 
   return (
     <div className="min-h-screen bg-white">
-      {/* Header */}
+      {/* Header with Navigation */}
       <div className="border-b-2 border-black">
-        <div className="container mx-auto px-4 py-6 flex justify-between items-center">
-          <h1 className="text-4xl font-display">AGENT</h1>
-          <Button variant="outline" onClick={() => router.push('/dashboard')}>
-            ← BACK TO DASHBOARD
-          </Button>
+        <div className="container mx-auto px-4 py-6">
+          <div className="flex justify-between items-center mb-4">
+            <div className="flex items-center gap-4">
+              <h1 className="text-4xl font-display">AI AGENT</h1>
+            </div>
+            <div className="flex items-center gap-3">
+              <Button variant="outline" onClick={() => router.push('/settings')}>
+                SETTINGS
+              </Button>
+              <Button variant="outline" onClick={() => router.push('/dashboard')}>
+                DASHBOARD
+              </Button>
+            </div>
+          </div>
+
+          {/* Breadcrumb */}
+          <div className="text-sm text-gray-600">
+            <span className="cursor-pointer hover:text-black" onClick={() => router.push('/dashboard')}>Dashboard</span>
+            <span className="mx-2">→</span>
+            <span>AI Agent</span>
+          </div>
         </div>
       </div>
 
       <div className="container mx-auto px-4 py-12 max-w-6xl">
-        {/* Subscription Info */}
+        {/* Subscription & Rate Limit Info */}
         <div className="border-2 border-black p-8 mb-8">
           <div className="flex justify-between items-start">
-            <div>
+            <div className="flex-1">
               <h2 className="text-3xl font-display mb-2">YOUR PLAN</h2>
               <p className="text-xl mb-4">
                 <span className="font-display">{subscription?.tier?.toUpperCase() || 'FREE'}</span>
                 {subscription?.tier === 'free' && (
-                  <span className="text-gray-600 ml-2">• 1 Database Limit</span>
+                  <span className="text-gray-600 ml-2">• 1 Database | 1 Generation/Week</span>
                 )}
                 {subscription?.tier === 'pro' && (
-                  <span className="text-gray-600 ml-2">• Unlimited Databases</span>
+                  <span className="text-gray-600 ml-2">• Unlimited Databases | Unlimited Generations</span>
                 )}
               </p>
+
+              {/* Rate Limit Status */}
+              {subscription?.tier === 'free' && rateLimitCheck && (
+                <div className="mt-4">
+                  {rateLimitCheck.canGenerate ? (
+                    <div className="inline-flex items-center gap-2 text-green-700 bg-green-50 border-2 border-green-500 px-4 py-2">
+                      <span>✓</span>
+                      <span className="font-display text-sm">You can generate a new database</span>
+                    </div>
+                  ) : (
+                    <div className="inline-flex items-center gap-2 text-yellow-700 bg-yellow-50 border-2 border-yellow-500 px-4 py-2">
+                      <span>⏳</span>
+                      <span className="font-display text-sm">
+                        Next generation in {rateLimitCheck.daysRemaining} days
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {subscription?.tier === 'free' && (
@@ -85,7 +150,7 @@ export default function AgentPage() {
           </div>
 
           <div className="border-t-2 border-black pt-6 mt-6">
-            <h3 className="font-display text-lg mb-4">AI MODELS</h3>
+            <h3 className="font-display text-lg mb-4">AI MODELS AVAILABLE</h3>
             <div className="grid grid-cols-2 gap-4">
               <div className="border-2 border-black p-4">
                 <div className="font-display text-xl mb-2">DEEPSEEK R1</div>
@@ -116,8 +181,13 @@ export default function AgentPage() {
         {/* Databases Section */}
         <div className="border-2 border-black p-8">
           <div className="flex justify-between items-center mb-6">
-            <h2 className="text-3xl font-display">PROMPT DATABASES</h2>
-            <Button onClick={handleCreateNew} disabled={!canCreateDatabase}>
+            <div>
+              <h2 className="text-3xl font-display">PROMPT DATABASES</h2>
+              <p className="text-sm text-gray-600 mt-1">
+                Create, manage, and connect your AI-generated prompt calendars
+              </p>
+            </div>
+            <Button onClick={handleCreateNew} disabled={!canCreateDatabase && subscription?.tier === 'free'}>
               + CREATE NEW DATABASE
             </Button>
           </div>
@@ -140,14 +210,29 @@ export default function AgentPage() {
                   className="border-2 border-black p-6 hover:bg-gray-50 cursor-pointer transition"
                   onClick={() => router.push(`/agent/database/${db.monthKey}`)}
                 >
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <h3 className="font-display text-2xl mb-2">{db.name}</h3>
-                      <p className="text-gray-600">
-                        {db.promptCount} prompts
-                        {' • '}
-                        Created {new Date(db.createdAt).toLocaleDateString()}
-                      </p>
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-2">
+                        <h3 className="font-display text-2xl">{db.name}</h3>
+                        {getStatusBadge(db.status)}
+                      </div>
+                      <div className="flex items-center gap-4 text-sm text-gray-600">
+                        <span>{db.morningCount} morning prompts</span>
+                        <span>•</span>
+                        <span>{db.eveningCount} evening prompts</span>
+                        <span>•</span>
+                        <span>Created {new Date(db.createdAt).toLocaleDateString()}</span>
+                      </div>
+                      {db.status === 'active' && (
+                        <div className="mt-2 text-sm text-green-700">
+                          ✓ Connected to Telegram bot and active
+                        </div>
+                      )}
+                      {db.status === 'connected' && (
+                        <div className="mt-2 text-sm text-blue-700">
+                          Connected to bot (activate in Settings)
+                        </div>
+                      )}
                     </div>
                     <div className="text-4xl">→</div>
                   </div>
@@ -156,19 +241,23 @@ export default function AgentPage() {
             </div>
           )}
 
-          {!canCreateDatabase && (
-            <div className="mt-6 p-4 border-2 border-black bg-yellow-50">
-              <p className="text-sm">
-                <span className="font-display">FREE PLAN LIMIT:</span> You've reached the 1 database limit.
+          {!canCreateDatabase && subscription?.tier === 'free' && (
+            <div className="mt-6 p-4 border-2 border-yellow-500 bg-yellow-50">
+              <div className="flex items-center justify-between">
+                <div className="flex-1">
+                  <span className="font-display text-sm">⚠️ FREE PLAN LIMIT:</span>
+                  <span className="text-sm ml-2">
+                    You've reached the 1 database limit. Upgrade for unlimited databases.
+                  </span>
+                </div>
                 <Button
                   variant="outline"
                   size="sm"
-                  className="ml-4"
                   onClick={() => setShowUpgrade(true)}
                 >
                   UPGRADE TO PRO
                 </Button>
-              </p>
+              </div>
             </div>
           )}
         </div>
@@ -201,9 +290,9 @@ export default function AgentPage() {
               <div className="flex gap-4">
                 <div className="font-display text-3xl">3</div>
                 <div>
-                  <h3 className="font-display text-xl mb-2">EDIT & EXPORT</h3>
+                  <h3 className="font-display text-xl mb-2">EDIT & CONNECT</h3>
                   <p className="text-gray-600">
-                    Edit prompts in a table view. Export to CSV or send to Telegram.
+                    Edit prompts in a table view, export to CSV, or connect to your Telegram bot.
                   </p>
                 </div>
               </div>
@@ -230,6 +319,14 @@ export default function AgentPage() {
               <div className="flex items-start gap-3">
                 <div className="text-2xl">✓</div>
                 <div>
+                  <div className="font-display">UNLIMITED GENERATIONS</div>
+                  <div className="text-sm text-gray-600">No weekly rate limits</div>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3">
+                <div className="text-2xl">✓</div>
+                <div>
                   <div className="font-display">CLAUDE SONNET 4.5</div>
                   <div className="text-sm text-gray-600">Best-in-class AI for superior prompts</div>
                 </div>
@@ -238,7 +335,7 @@ export default function AgentPage() {
               <div className="flex items-start gap-3">
                 <div className="text-2xl">✓</div>
                 <div>
-                  <div className="font-display">PRIORITY GENERATION</div>
+                  <div className="font-display">PRIORITY SUPPORT</div>
                   <div className="text-sm text-gray-600">Faster processing and support</div>
                 </div>
               </div>

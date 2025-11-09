@@ -56,18 +56,31 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-white">
-      {/* Header */}
+      {/* Header with Navigation */}
       <header className="border-b-2 border-black">
-        <div className="container mx-auto px-4 py-6 flex justify-between items-center">
-          <h1 className="text-4xl font-display">THREADBOT</h1>
-          <div className="flex items-center gap-4">
-            <Button
-              variant="outline"
-              onClick={() => router.push('/agent')}
-            >
-              AGENT
-            </Button>
-            <UserButton />
+        <div className="container mx-auto px-4 py-6">
+          <div className="flex justify-between items-center mb-4">
+            <h1 className="text-4xl font-display">THREADBOT</h1>
+            <div className="flex items-center gap-3">
+              <Button
+                variant="outline"
+                onClick={() => router.push('/agent')}
+              >
+                AGENT
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => router.push('/settings')}
+              >
+                SETTINGS
+              </Button>
+              <UserButton />
+            </div>
+          </div>
+
+          {/* Breadcrumb */}
+          <div className="text-sm text-gray-600">
+            <span className="font-display">Dashboard</span>
           </div>
         </div>
       </header>

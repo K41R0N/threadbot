@@ -119,19 +119,34 @@ export default function SettingsPage() {
     <div className="min-h-screen bg-white">
       <div className="border-b-2 border-black">
         <div className="container mx-auto px-4 py-6">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-4">
               <Button variant="outline" onClick={() => router.push('/dashboard')}>
                 ← BACK
               </Button>
               <h1 className="text-4xl font-display">SETTINGS</h1>
             </div>
-            <Button
-              variant="outline"
-              onClick={() => router.push('/agent')}
-            >
-              AGENT
-            </Button>
+            <div className="flex items-center gap-3">
+              <Button
+                variant="outline"
+                onClick={() => router.push('/agent')}
+              >
+                AGENT
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => router.push('/dashboard')}
+              >
+                DASHBOARD
+              </Button>
+            </div>
+          </div>
+
+          {/* Breadcrumb */}
+          <div className="text-sm text-gray-600">
+            <span className="cursor-pointer hover:text-black" onClick={() => router.push('/dashboard')}>Dashboard</span>
+            <span className="mx-2">→</span>
+            <span>Settings</span>
           </div>
         </div>
       </div>
