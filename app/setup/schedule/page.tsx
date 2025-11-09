@@ -24,30 +24,31 @@ const TIMEZONES = [
 
 export default function SetupSchedulePage() {
   const router = useRouter();
-  const { isSignedIn, user } = useUser();
+  const { isSignedIn, isLoaded } = useUser();
   const [morningTime, setMorningTime] = useState('09:00');
   const [eveningTime, setEveningTime] = useState('18:00');
   const [timezone, setTimezone] = useState('UTC');
 
-  const { data: config } = trpc.bot.getConfig.useQuery(undefined, {
+  const { data: config, isLoading: configLoading } = trpc.bot.getConfig.useQuery(undefined, {
     enabled: isSignedIn,
   });
 
+  const setupWebhookForUser = trpc.bot.setupWebhookForUser.useMutation();
+
   const updateConfig = trpc.bot.updateConfig.useMutation({
     onSuccess: async () => {
-      // Set up webhook
-      if (config?.telegram_bot_token && user?.id) {
-        const webhookUrl = `${window.location.origin}/api/webhook/${user.id}`;
-        try {
-          await setupWebhook.mutateAsync({
-            botToken: config.telegram_bot_token,
-            webhookUrl,
-          });
-        } catch (error) {
-          console.error('Webhook setup failed:', error);
+      // SECURITY: Set up webhook server-side (token never sent to client)
+      try {
+        const result = await setupWebhookForUser.mutateAsync();
+        if (!result.success) {
+          console.error('Webhook setup warning:', result.message);
+          // Don't block activation on webhook failure
         }
+      } catch (error) {
+        console.error('Webhook setup failed:', error);
+        // Don't block activation on webhook failure
       }
-      
+
       toast.success('Bot activated!');
       router.push('/dashboard');
     },
@@ -56,17 +57,15 @@ export default function SetupSchedulePage() {
     },
   });
 
-  const setupWebhook = trpc.bot.setupWebhook.useMutation();
-
   useEffect(() => {
+    if (!isLoaded) return;
+
     if (!isSignedIn) {
       router.push('/');
-    } else if (!config) {
+    } else if (!configLoading && !config) {
       router.push('/setup/notion');
-    } else if (!config.telegram_bot_token) {
-      router.push('/setup/telegram');
     }
-  }, [isSignedIn, config, router]);
+  }, [isLoaded, isSignedIn, config, configLoading, router]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
