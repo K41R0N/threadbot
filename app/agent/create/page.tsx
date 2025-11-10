@@ -8,8 +8,6 @@ import { Input } from '@/components/ui/input';
 import { trpc } from '@/lib/trpc';
 import { toast } from 'sonner';
 
-// Force dynamic rendering (requires authentication at runtime)
-export const dynamic = 'force-dynamic';
 
 interface AnalysisResult {
   coreThemes?: string[];

@@ -8,8 +8,6 @@ import { trpc } from '@/lib/trpc';
 import { toast } from 'sonner';
 import type { UserPrompt } from '@/lib/supabase-agent';
 
-// Force dynamic rendering (requires authentication at runtime)
-export const dynamic = 'force-dynamic';
 
 export default function DatabasePage({ params }: { params: Promise<{ monthYear: string }> }) {
   const { monthYear } = use(params);

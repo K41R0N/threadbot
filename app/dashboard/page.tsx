@@ -11,8 +11,6 @@ import { OnboardingModal } from '@/components/onboarding-modal';
 import type { UserPrompt } from '@/lib/supabase-agent';
 import type { BotConfig } from '@/lib/supabase';
 
-// Force dynamic rendering (requires authentication at runtime)
-export const dynamic = 'force-dynamic';
 
 interface AgentDatabase {
   monthKey: string;

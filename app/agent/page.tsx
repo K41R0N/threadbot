@@ -3,8 +3,6 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
-// Force dynamic rendering (requires authentication at runtime)
-export const dynamic = 'force-dynamic';
 
 export default function AgentRedirectPage() {
   const router = useRouter();

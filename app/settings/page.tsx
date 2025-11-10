@@ -10,8 +10,6 @@ import { toast } from 'sonner';
 import { AuthenticatedLayout } from '@/components/layout/authenticated-layout';
 import type { BotConfig } from '@/lib/supabase';
 
-// Force dynamic rendering (requires authentication at runtime)
-export const dynamic = 'force-dynamic';
 
 export default function SettingsPage() {
   const router = useRouter();
