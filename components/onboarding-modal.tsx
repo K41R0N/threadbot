@@ -19,6 +19,10 @@ export function OnboardingModal({ isOpen, onClose }: OnboardingModalProps) {
     onSuccess: () => {
       toast.success('Welcome to Threadbot!');
       onClose();
+      router.push('/agent/create');
+    },
+    onError: () => {
+      toast.error('Failed to complete onboarding');
     },
   });
 
@@ -79,7 +83,6 @@ export function OnboardingModal({ isOpen, onClose }: OnboardingModalProps) {
 
   const handleGetStarted = () => {
     completeOnboarding.mutate();
-    router.push('/agent/create');
   };
 
   return (
