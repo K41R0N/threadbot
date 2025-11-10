@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSupabase } from '@/lib/supabase-server';
 import { auth } from '@clerk/nextjs/server';
+import type { BotConfig, BotState } from '@/lib/supabase';
 
 // Debug endpoint to test webhook configuration
 // SECURITY: Only accessible by authenticated user checking their own data
@@ -45,19 +46,23 @@ export async function GET(request: NextRequest) {
       .eq('user_id', userId)
       .single();
 
+    // Type assertions for proper inference
+    const typedConfig = config as Pick<BotConfig, 'user_id' | 'telegram_chat_id' | 'is_active'>;
+    const typedState = state as Pick<BotState, 'last_prompt_page_id' | 'last_prompt_type' | 'last_prompt_sent_at'> | null;
+
     // Check environment variables
     const hasWebhookSecret = !!process.env.TELEGRAM_WEBHOOK_SECRET;
     const appUrl = process.env.NEXT_PUBLIC_APP_URL;
     const expectedWebhookUrl = `${appUrl}/api/webhook/${userId}`;
 
     return NextResponse.json({
-      userId: config.user_id,
-      chatId: config.telegram_chat_id,
-      isActive: config.is_active,
-      lastPrompt: state ? {
-        pageId: state.last_prompt_page_id,
-        type: state.last_prompt_type,
-        sentAt: state.last_prompt_sent_at,
+      userId: typedConfig.user_id,
+      chatId: typedConfig.telegram_chat_id,
+      isActive: typedConfig.is_active,
+      lastPrompt: typedState ? {
+        pageId: typedState.last_prompt_page_id,
+        type: typedState.last_prompt_type,
+        sentAt: typedState.last_prompt_sent_at,
       } : null,
       webhookConfig: {
         hasSecret: hasWebhookSecret,

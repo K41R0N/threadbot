@@ -1,0 +1,306 @@
+/**
+ * Database type definitions for Supabase
+ * These types should match the actual database schema
+ */
+
+export type Database = {
+  public: {
+    Tables: {
+      bot_configs: {
+        Row: {
+          id: string;
+          user_id: string;
+          notion_token: string | null;
+          notion_database_id: string | null;
+          telegram_bot_token: string | null;
+          telegram_chat_id: string | null;
+          timezone: string;
+          morning_time: string;
+          evening_time: string;
+          is_active: boolean;
+          prompt_source: 'notion' | 'agent';
+          last_webhook_setup_at: string | null;
+          last_webhook_status: 'success' | 'failed' | null;
+          last_webhook_error: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          notion_token?: string | null;
+          notion_database_id?: string | null;
+          telegram_bot_token?: string | null;
+          telegram_chat_id?: string | null;
+          timezone?: string;
+          morning_time?: string;
+          evening_time?: string;
+          is_active?: boolean;
+          prompt_source?: 'notion' | 'agent';
+          last_webhook_setup_at?: string | null;
+          last_webhook_status?: 'success' | 'failed' | null;
+          last_webhook_error?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          notion_token?: string | null;
+          notion_database_id?: string | null;
+          telegram_bot_token?: string | null;
+          telegram_chat_id?: string | null;
+          timezone?: string;
+          morning_time?: string;
+          evening_time?: string;
+          is_active?: boolean;
+          prompt_source?: 'notion' | 'agent';
+          last_webhook_setup_at?: string | null;
+          last_webhook_status?: 'success' | 'failed' | null;
+          last_webhook_error?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      bot_state: {
+        Row: {
+          id: string;
+          user_id: string;
+          last_prompt_type: string | null;
+          last_prompt_sent_at: string | null;
+          last_prompt_page_id: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          last_prompt_type?: string | null;
+          last_prompt_sent_at?: string | null;
+          last_prompt_page_id?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          last_prompt_type?: string | null;
+          last_prompt_sent_at?: string | null;
+          last_prompt_page_id?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      user_prompts: {
+        Row: {
+          id: string;
+          user_id: string;
+          date: string;
+          name: string;
+          week_theme: string;
+          post_type: 'morning' | 'evening';
+          status: 'draft' | 'scheduled' | 'sent';
+          prompts: string[];
+          response: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          date: string;
+          name: string;
+          week_theme: string;
+          post_type: 'morning' | 'evening';
+          status?: 'draft' | 'scheduled' | 'sent';
+          prompts: string[];
+          response?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          date?: string;
+          name?: string;
+          week_theme?: string;
+          post_type?: 'morning' | 'evening';
+          status?: 'draft' | 'scheduled' | 'sent';
+          prompts?: string[];
+          response?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      user_generation_context: {
+        Row: {
+          id: string;
+          user_id: string;
+          brand_urls: string[] | null;
+          competitor_urls: string[] | null;
+          brand_voice: string | null;
+          tone_attributes: any | null;
+          target_audience: string | null;
+          core_themes: string[] | null;
+          uploaded_files: any | null;
+          last_analysis_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          brand_urls?: string[] | null;
+          competitor_urls?: string[] | null;
+          brand_voice?: string | null;
+          tone_attributes?: any | null;
+          target_audience?: string | null;
+          core_themes?: string[] | null;
+          uploaded_files?: any | null;
+          last_analysis_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          brand_urls?: string[] | null;
+          competitor_urls?: string[] | null;
+          brand_voice?: string | null;
+          tone_attributes?: any | null;
+          target_audience?: string | null;
+          core_themes?: string[] | null;
+          uploaded_files?: any | null;
+          last_analysis_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      user_weekly_themes: {
+        Row: {
+          id: string;
+          user_id: string;
+          month_year: string;
+          week_number: number;
+          theme_title: string;
+          theme_description: string | null;
+          keywords: string[] | null;
+          approved: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          month_year: string;
+          week_number: number;
+          theme_title: string;
+          theme_description?: string | null;
+          keywords?: string[] | null;
+          approved?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          month_year?: string;
+          week_number?: number;
+          theme_title?: string;
+          theme_description?: string | null;
+          keywords?: string[] | null;
+          approved?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      agent_generation_jobs: {
+        Row: {
+          id: string;
+          user_id: string;
+          status: 'pending' | 'analyzing' | 'generating_themes' | 'generating_prompts' | 'completed' | 'failed';
+          model_used: string;
+          start_date: string;
+          end_date: string;
+          total_prompts: number;
+          error_message: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          status: 'pending' | 'analyzing' | 'generating_themes' | 'generating_prompts' | 'completed' | 'failed';
+          model_used: string;
+          start_date: string;
+          end_date: string;
+          total_prompts?: number;
+          error_message?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          status?: 'pending' | 'analyzing' | 'generating_themes' | 'generating_prompts' | 'completed' | 'failed';
+          model_used?: string;
+          start_date?: string;
+          end_date?: string;
+          total_prompts?: number;
+          error_message?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      user_subscriptions: {
+        Row: {
+          id: string;
+          user_id: string;
+          tier: 'free' | 'pro' | 'enterprise';
+          claude_credits: number;
+          onboarding_completed: boolean;
+          onboarding_skipped: boolean;
+          stripe_customer_id: string | null;
+          stripe_subscription_id: string | null;
+          current_period_end: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          tier?: 'free' | 'pro' | 'enterprise';
+          claude_credits?: number;
+          onboarding_completed?: boolean;
+          onboarding_skipped?: boolean;
+          stripe_customer_id?: string | null;
+          stripe_subscription_id?: string | null;
+          current_period_end?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          tier?: 'free' | 'pro' | 'enterprise';
+          claude_credits?: number;
+          onboarding_completed?: boolean;
+          onboarding_skipped?: boolean;
+          stripe_customer_id?: string | null;
+          stripe_subscription_id?: string | null;
+          current_period_end?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+    };
+    Functions: {
+      decrement_claude_credits: {
+        Args: {
+          user_id_param: string;
+        };
+        Returns: void;
+      };
+    };
+  };
+};

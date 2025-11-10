@@ -18,6 +18,7 @@
  */
 
 import { createClient } from '@supabase/supabase-js';
+import type { Database } from './database.types';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -31,7 +32,8 @@ if (!serviceRoleKey) {
 }
 
 // Singleton instance for better performance
-let serverSupabaseInstance: ReturnType<typeof createClient> | null = null;
+type SupabaseClient = ReturnType<typeof createClient<Database>>;
+let serverSupabaseInstance: SupabaseClient | null = null;
 
 /**
  * Get server-side Supabase client with service role privileges
@@ -41,15 +43,15 @@ let serverSupabaseInstance: ReturnType<typeof createClient> | null = null;
  *
  * Uses singleton pattern to avoid creating multiple client instances
  */
-export function getServerSupabase() {
+export function getServerSupabase(): SupabaseClient {
   if (!serverSupabaseInstance) {
     // Safe to use non-null assertion - we throw above if serviceRoleKey is undefined
-    serverSupabaseInstance = createClient(supabaseUrl, serviceRoleKey!, {
+    serverSupabaseInstance = createClient<Database>(supabaseUrl, serviceRoleKey!, {
       auth: {
         autoRefreshToken: false,
         persistSession: false,
       },
     });
   }
-  return serverSupabaseInstance;
+  return serverSupabaseInstance!;
 }
