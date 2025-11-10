@@ -120,8 +120,8 @@ export default function DashboardPage() {
       const eveningCount = monthPrompts.filter(p => p.post_type === 'evening').length;
 
       // Check if this database is connected to the bot
-      const isConnected = config.prompt_source === 'agent';
-      const isActive = isConnected && config.is_active;
+      const isConnected = config?.prompt_source === 'agent';
+      const isActive = isConnected && config?.is_active;
 
       acc.push({
         monthKey,
@@ -136,9 +136,9 @@ export default function DashboardPage() {
     return acc;
   }, []) || [];
 
-  const hasNotionDatabase = config.notion_database_id;
-  const isNotionActive = config.prompt_source === 'notion' && config.is_active;
-  const isNotionConnected = config.prompt_source === 'notion';
+  const hasNotionDatabase = config?.notion_database_id;
+  const isNotionActive = config?.prompt_source === 'notion' && config?.is_active;
+  const isNotionConnected = config?.prompt_source === 'notion';
 
   const handleCreateNew = () => {
     router.push('/agent/create');
@@ -146,7 +146,7 @@ export default function DashboardPage() {
 
   const toggleBot = () => {
     updateConfig.mutate({
-      isActive: !config.is_active,
+      isActive: !config?.is_active,
     });
   };
 
@@ -170,23 +170,23 @@ export default function DashboardPage() {
             <div>
               <h2 className="text-3xl font-display mb-2">BOT STATUS</h2>
               <div className="flex items-center gap-3">
-                <div className={`w-4 h-4 rounded-full ${config.is_active ? 'bg-green-500' : 'bg-gray-300'}`} />
+                <div className={`w-4 h-4 rounded-full ${config?.is_active ? 'bg-green-500' : 'bg-gray-300'}`} />
                 <span className="font-display text-xl">
-                  {config.is_active ? 'ACTIVE' : 'INACTIVE'}
+                  {config?.is_active ? 'ACTIVE' : 'INACTIVE'}
                 </span>
               </div>
               <div className="mt-2 text-sm text-gray-600">
-                Prompt Source: <span className="font-display uppercase">{config.prompt_source === 'agent' ? '🤖 AI Agent' : '📝 Notion'}</span>
+                Prompt Source: <span className="font-display uppercase">{config?.prompt_source === 'agent' ? '🤖 AI Agent' : '📝 Notion'}</span>
               </div>
 
               {/* Webhook Health Status */}
-              {config.last_webhook_setup_at && (
+              {config?.last_webhook_setup_at && (
                 <div className="mt-3 border-t border-gray-200 pt-3">
                   <div className="text-xs text-gray-500 mb-1">
                     Webhook Status
                   </div>
                   <div className="flex items-center gap-2">
-                    {config.last_webhook_status === 'success' ? (
+                    {config?.last_webhook_status === 'success' ? (
                       <>
                         <div className="w-2 h-2 bg-green-500 rounded-full" />
                         <span className="text-sm text-green-700 font-display">CONNECTED</span>
@@ -198,12 +198,12 @@ export default function DashboardPage() {
                       </>
                     )}
                     <span className="text-xs text-gray-500">
-                      • Last checked: {new Date(config.last_webhook_setup_at).toLocaleString()}
+                      • Last checked: {new Date(config?.last_webhook_setup_at).toLocaleString()}
                     </span>
                   </div>
-                  {config.last_webhook_error && (
+                  {config?.last_webhook_error && (
                     <div className="mt-2 text-xs text-red-600 bg-red-50 p-2 rounded border border-red-200">
-                      Error: {config.last_webhook_error}
+                      Error: {config?.last_webhook_error}
                     </div>
                   )}
                 </div>
@@ -212,10 +212,10 @@ export default function DashboardPage() {
             <div className="flex gap-3">
               <Button
                 onClick={toggleBot}
-                variant={config.is_active ? 'outline' : 'default'}
+                variant={config?.is_active ? 'outline' : 'default'}
                 disabled={updateConfig.isPending}
               >
-                {config.is_active ? 'DEACTIVATE' : 'ACTIVATE'}
+                {config?.is_active ? 'DEACTIVATE' : 'ACTIVATE'}
               </Button>
               <Button
                 variant="outline"
@@ -328,7 +328,7 @@ export default function DashboardPage() {
                       <div className="flex items-center gap-4 text-sm text-gray-600">
                         <span>Connected to your Notion workspace</span>
                         <span>•</span>
-                        <span>Database ID: {config.notion_database_id?.slice(0, 8)}...</span>
+                        <span>Database ID: {config?.notion_database_id?.slice(0, 8)}...</span>
                       </div>
                       {isNotionActive && (
                         <div className="mt-2 text-sm text-green-700">
