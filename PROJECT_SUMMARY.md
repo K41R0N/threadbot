@@ -94,8 +94,7 @@ threadbot-saas/
 - `bot.getState` - Get bot state (last prompt, etc.)
 - `bot.createConfig` - Create initial configuration
 - `bot.updateConfig` - Update configuration
-- `bot.setupWebhook` - Set Telegram webhook
-- `bot.getWebhookInfo` - Get webhook status
+- `bot.setupWebhookForUser` - Set Telegram webhook (server-side, secure)
 - `bot.testPrompt` - Send test prompt
 
 ### ✅ Design

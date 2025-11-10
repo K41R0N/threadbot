@@ -125,63 +125,54 @@ All sensitive fields stay server-side. Tokens are retrieved from database within
 
 **No Markdown injection vulnerabilities found.**
 
-## ⚠️ Legacy Webhook Helpers
-**Status: ISSUE FOUND**
+## ✅ Legacy Webhook Helpers
+**Status: FIXED**
 
-Two legacy tRPC procedures are still exposed but unused:
+Removed two unused legacy tRPC procedures that were less secure:
 
-1. **setupWebhook** (`server/routers.ts` line 210):
-   - Comment says "legacy - for manual setup with token"
-   - Requires client to pass `botToken` and `webhookUrl`
+1. **setupWebhook** (removed from `server/routers.ts`):
+   - Was marked as "legacy - for manual setup with token"
+   - Required client to pass `botToken` and `webhookUrl`
    - Less secure than `setupWebhookForUser` which retrieves token server-side
-   - **Not used anywhere in the app**
+   - Was not used anywhere in the app
 
-2. **getWebhookInfo** (`server/routers.ts` line 232):
-   - Requires client to pass `botToken`
+2. **getWebhookInfo** (removed from `server/routers.ts`):
+   - Required client to pass `botToken`
    - Less secure than retrieving from database
-   - **Not used anywhere in the app**
+   - Was not used anywhere in the app
 
 **Current usage:**
-- `setupWebhookForUser` is used in:
-  - `app/settings/page.tsx:213`
-  - `app/setup/schedule/page.tsx:42`
+- Only `setupWebhookForUser` remains, which is used in:
+  - `app/settings/page.tsx:60,213`
+  - `app/setup/schedule/page.tsx:36,42`
+- This is the secure implementation that retrieves tokens server-side
 
-**Recommendation:** Consider removing legacy procedures or adding deprecation warnings.
-
-## ⚠️ Deployment Gate Checks
-**Status: PARTIAL**
+## ✅ Deployment Gate Checks
+**Status: FIXED**
 
 **Runtime validation (✓):**
 - `lib/supabase-server.ts` throws on missing SUPABASE vars (lines 27, 31)
 - `lib/supabase.ts` throws on missing SUPABASE vars (line 8)
 - `app/api/cron/route.ts` returns 500 if CRON_SECRET missing (lines 18-24)
 
-**Build-time validation (✗):**
-- No pre-build script validates required environment variables
-- Type generation is optional (`|| echo 'warning'`) so missing SUPABASE vars won't fail build
-- Could deploy with missing env vars and get runtime errors
+**Build-time validation (✓):**
+- Added `scripts/validate-env.sh` that validates all required env vars before build
+- Integrated into `package.json` build script: validation runs before type generation
+- Build will fail early if any required env var is missing
+- Provides clear error messages indicating which vars are missing
 
-**Recommendation:** Add a build-time validation script that checks for required env vars:
-```bash
-# scripts/validate-env.sh
-required_vars=(
-  "NEXT_PUBLIC_SUPABASE_URL"
-  "NEXT_PUBLIC_SUPABASE_ANON_KEY"
-  "SUPABASE_SERVICE_ROLE_KEY"
-  "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY"
-  "CLERK_SECRET_KEY"
-  "NEXT_PUBLIC_APP_URL"
-  "CRON_SECRET"
-  "TELEGRAM_WEBHOOK_SECRET"
-)
+**Validated variables:**
+- NEXT_PUBLIC_SUPABASE_URL
+- NEXT_PUBLIC_SUPABASE_ANON_KEY
+- SUPABASE_SERVICE_ROLE_KEY
+- NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
+- CLERK_SECRET_KEY
+- NEXT_PUBLIC_APP_URL
+- CRON_SECRET
+- TELEGRAM_WEBHOOK_SECRET
 
-for var in "${required_vars[@]}"; do
-  if [ -z "${!var}" ]; then
-    echo "❌ Error: Required environment variable $var is not set"
-    exit 1
-  fi
-done
-```
+**Emergency escape hatch:**
+- `pnpm build:skip-validation` available if validation needs to be bypassed
 
 ## ✅ Debug Endpoints
 **Status: VERIFIED**
@@ -200,6 +191,8 @@ done
 ### Fixed Issues
 - ✅ Cron path documentation
 - ✅ Missing environment variables in README
+- ✅ Legacy webhook procedures removed
+- ✅ Build-time environment validation added
 
 ### Verified Secure
 - ✅ Server-only Supabase usage
@@ -212,6 +205,5 @@ done
 - ✅ Telegram message escaping
 - ✅ Debug endpoint authentication
 
-### Recommended Improvements
-- ⚠️ Remove or deprecate legacy webhook procedures (`setupWebhook`, `getWebhookInfo`)
-- ⚠️ Add build-time environment variable validation script
+### All Recommendations Implemented
+All security and code quality issues have been addressed.

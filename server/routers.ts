@@ -206,49 +206,6 @@ export const appRouter = router({
       }
     }),
 
-    // Set up Telegram webhook (legacy - for manual setup with token)
-    setupWebhook: protectedProcedure
-      .input(z.object({
-        botToken: z.string(),
-        webhookUrl: z.string(),
-      }))
-      .mutation(async ({ input }) => {
-        try {
-          const telegram = new TelegramService(input.botToken);
-          const success = await telegram.setWebhook(input.webhookUrl);
-          return {
-            success,
-            message: success ? 'Webhook set successfully' : 'Failed to set webhook',
-          };
-        } catch (error: any) {
-          return {
-            success: false,
-            message: error.message,
-          };
-        }
-      }),
-
-    // Get webhook info
-    getWebhookInfo: protectedProcedure
-      .input(z.object({
-        botToken: z.string(),
-      }))
-      .mutation(async ({ input }) => {
-        try {
-          const telegram = new TelegramService(input.botToken);
-          const info = await telegram.getWebhookInfo();
-          return {
-            success: true,
-            info,
-          };
-        } catch (error: any) {
-          return {
-            success: false,
-            message: error.message,
-          };
-        }
-      }),
-
     // Send test prompt
     testPrompt: protectedProcedure
       .input(z.object({

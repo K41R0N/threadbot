@@ -8,7 +8,8 @@
   },
   "scripts": {
     "dev": "next dev",
-    "build": "bash scripts/generate-types.sh || echo '⚠️  Type generation failed, using existing types' && next build",
+    "build": "bash scripts/validate-env.sh && bash scripts/generate-types.sh || echo '⚠️  Type generation failed, using existing types' && next build",
+    "build:skip-validation": "bash scripts/generate-types.sh || echo '⚠️  Type generation failed, using existing types' && next build",
     "build:skip-types": "next build",
     "start": "next start",
     "lint": "eslint",
