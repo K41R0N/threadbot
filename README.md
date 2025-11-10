@@ -79,6 +79,14 @@ CLERK_SECRET_KEY=your_clerk_secret_key
 
 # App
 NEXT_PUBLIC_APP_URL=https://your-app.vercel.app
+
+# Security (Required)
+CRON_SECRET=your_random_secret_for_cron_endpoints
+TELEGRAM_WEBHOOK_SECRET=your_random_secret_for_telegram_webhooks
+
+# AI Agent Features (Optional - only if using AI prompt generation)
+ANTHROPIC_API_KEY=your_anthropic_api_key
+DEEPSEEK_API_KEY=your_deepseek_api_key
 ```
 
 > **Note**: Database types are auto-generated from your Supabase schema on every build using your existing credentials.
@@ -91,11 +99,11 @@ Add to `vercel.json`:
 {
   "crons": [
     {
-      "path": "/api/cron/prompts?type=morning",
+      "path": "/api/cron?type=morning",
       "schedule": "*/5 * * * *"
     },
     {
-      "path": "/api/cron/prompts?type=evening",
+      "path": "/api/cron?type=evening",
       "schedule": "*/5 * * * *"
     }
   ]
