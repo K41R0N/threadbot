@@ -6,7 +6,7 @@ This project automatically generates TypeScript types from your Supabase databas
 
 1. Before every build, `scripts/generate-types.sh` runs automatically
 2. The script connects to your Supabase database using the Supabase CLI
-3. Types are generated and saved to `lib/database.types.ts`
+3. Types are generated and saved to `lib/database.ts`
 4. The build proceeds with up-to-date types
 
 ## Vercel Setup
@@ -58,6 +58,7 @@ pnpm build
 - Types are regenerated on every build
 - For local development, run `pnpm types:generate` after schema changes
 - Consider adding a git pre-commit hook to regenerate types
+- Types file: `lib/database.ts`
 
 ## Benefits
 
@@ -80,5 +81,5 @@ Once type generation is working and a new version of `@supabase/supabase-js` is 
 ## Related Files
 
 - `scripts/generate-types.sh` - Generation script
-- `lib/database.types.ts` - Generated types (auto-generated, don't edit manually)
+- `lib/database.ts` - Generated types (auto-generated, don't edit manually)
 - `package.json` - Build scripts configuration
