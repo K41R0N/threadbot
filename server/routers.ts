@@ -92,10 +92,10 @@ export const appRouter = router({
     // Update bot configuration
     updateConfig: protectedProcedure
       .input(z.object({
-        notionToken: z.string().optional(),
-        notionDatabaseId: z.string().optional(),
-        telegramBotToken: z.string().optional(),
-        telegramChatId: z.string().optional(),
+        notionToken: z.string().nullable().optional(),
+        notionDatabaseId: z.string().nullable().optional(),
+        telegramBotToken: z.string().nullable().optional(),
+        telegramChatId: z.string().nullable().optional(),
         timezone: z.string().optional(),
         morningTime: z.string().optional(),
         eveningTime: z.string().optional(),
@@ -104,12 +104,13 @@ export const appRouter = router({
       }))
       .mutation(async ({ ctx, input }) => {
         const supabase = getServerSupabase();
-        
+
         const updateData: any = {};
-        if (input.notionToken) updateData.notion_token = input.notionToken;
-        if (input.notionDatabaseId) updateData.notion_database_id = input.notionDatabaseId;
-        if (input.telegramBotToken) updateData.telegram_bot_token = input.telegramBotToken;
-        if (input.telegramChatId) updateData.telegram_chat_id = input.telegramChatId;
+        // Support clearing tokens by distinguishing undefined (not provided) from null (clear)
+        if (input.notionToken !== undefined) updateData.notion_token = input.notionToken;
+        if (input.notionDatabaseId !== undefined) updateData.notion_database_id = input.notionDatabaseId;
+        if (input.telegramBotToken !== undefined) updateData.telegram_bot_token = input.telegramBotToken;
+        if (input.telegramChatId !== undefined) updateData.telegram_chat_id = input.telegramChatId;
         if (input.timezone) updateData.timezone = input.timezone;
         if (input.morningTime) updateData.morning_time = input.morningTime;
         if (input.eveningTime) updateData.evening_time = input.eveningTime;

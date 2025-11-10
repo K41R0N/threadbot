@@ -109,6 +109,16 @@ export default function SettingsPage() {
     );
   }
 
+  const handleClearNotionToken = () => {
+    setNotionToken('');
+    toast.info('Notion token will be cleared when you save');
+  };
+
+  const handleClearTelegramToken = () => {
+    setTelegramBotToken('');
+    toast.info('Telegram bot token will be cleared when you save');
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -121,16 +131,32 @@ export default function SettingsPage() {
 
     // Only update Notion settings if using Notion source
     if (promptSource === 'notion') {
-      if (notionToken) updateData.notionToken = notionToken;
-      if (databaseId !== config.notion_database_id) updateData.notionDatabaseId = databaseId;
+      // Send null to clear, non-empty string to update, undefined to keep
+      if (notionToken === '') {
+        updateData.notionToken = null; // Clear token
+      } else if (notionToken.trim()) {
+        updateData.notionToken = notionToken; // Update token
+      }
+
+      if (databaseId !== config.notion_database_id) {
+        if (databaseId === '') {
+          updateData.notionDatabaseId = null; // Clear database ID
+        } else {
+          updateData.notionDatabaseId = databaseId;
+        }
+      }
     }
 
     if (telegramChatId !== config.telegram_chat_id) updateData.telegramChatId = telegramChatId;
 
-    // If telegram bot token is updated, reconfigure webhook
+    // Handle telegram bot token clearing or updating
     const shouldUpdateWebhook = telegramBotToken.trim() !== '';
-    if (shouldUpdateWebhook) {
-      updateData.telegramBotToken = telegramBotToken;
+    const shouldClearToken = notionToken === '' || telegramBotToken === '';
+
+    if (telegramBotToken === '') {
+      updateData.telegramBotToken = null; // Clear token
+    } else if (shouldUpdateWebhook) {
+      updateData.telegramBotToken = telegramBotToken; // Update token
     }
 
     try {
@@ -234,6 +260,14 @@ export default function SettingsPage() {
                   >
                     {showNotionToken ? 'HIDE' : 'SHOW'}
                   </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleClearNotionToken}
+                    className="text-red-600 hover:bg-red-50"
+                  >
+                    CLEAR
+                  </Button>
                 </div>
               </div>
 
@@ -274,6 +308,14 @@ export default function SettingsPage() {
                     onClick={() => setShowTelegramToken(!showTelegramToken)}
                   >
                     {showTelegramToken ? 'HIDE' : 'SHOW'}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleClearTelegramToken}
+                    className="text-red-600 hover:bg-red-50"
+                  >
+                    CLEAR
                   </Button>
                 </div>
                 <p className="text-xs text-gray-500 mt-2">
