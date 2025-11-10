@@ -7,7 +7,7 @@
 
 import { generateText, generateObject } from 'ai';
 import { createAnthropic } from '@ai-sdk/anthropic';
-import { createOpenAI } from '@ai-sdk/openai';
+import { createDeepSeek } from '@ai-sdk/deepseek';
 import { z } from 'zod';
 import { SafeLogger } from '@/lib/logger';
 
@@ -16,9 +16,8 @@ const anthropic = createAnthropic({
   apiKey: process.env.ANTHROPIC_API_KEY!,
 });
 
-const deepseek = createOpenAI({
+const deepseek = createDeepSeek({
   apiKey: process.env.DEEPSEEK_API_KEY!,
-  baseURL: 'https://api.deepseek.com',
 });
 
 // Schemas for structured outputs
