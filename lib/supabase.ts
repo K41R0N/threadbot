@@ -7,23 +7,12 @@ if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Missing Supabase environment variables');
 }
 
+/**
+ * Client-side Supabase client with anonymous key
+ * Safe to use in browser/client components
+ * Subject to Row Level Security (RLS) policies
+ */
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
-
-// Server-side client with service role key (for admin operations)
-export function getServerSupabase() {
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  
-  if (!serviceRoleKey) {
-    throw new Error('Missing SUPABASE_SERVICE_ROLE_KEY');
-  }
-  
-  return createClient(supabaseUrl, serviceRoleKey, {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false
-    }
-  });
-}
 
 // Database types
 export type BotConfig = {

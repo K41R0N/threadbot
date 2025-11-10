@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSupabase } from '@/lib/supabase';
+import { getServerSupabase } from '@/lib/supabase-server';
 import { auth } from '@clerk/nextjs/server';
 
 // Debug endpoint to test webhook configuration

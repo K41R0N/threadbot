@@ -1,6 +1,7 @@
 import { NotionService } from './notion';
 import { TelegramService } from './telegram';
-import { getServerSupabase, type BotConfig } from '@/lib/supabase';
+import { getServerSupabase } from '@/lib/supabase-server';
+import type { BotConfig } from '@/lib/supabase';
 import { format, toZonedTime } from 'date-fns-tz';
 import { SafeLogger } from '@/lib/logger';
 
@@ -14,6 +15,25 @@ export class BotService {
     type: 'morning' | 'evening'
   ): Promise<{ success: boolean; message?: string; pageId?: string }> {
     try {
+      // IDEMPOTENCY CHECK: Verify we haven't already sent this prompt today
+      const alreadySent = await this.hasAlreadySentToday(
+        config.user_id,
+        type,
+        config.timezone
+      );
+
+      if (alreadySent) {
+        SafeLogger.info('Prompt already sent today', {
+          userId: config.user_id,
+          type,
+          timezone: config.timezone,
+        });
+        return {
+          success: false,
+          message: `${type} prompt already sent today`,
+        };
+      }
+
       const telegram = new TelegramService(config.telegram_bot_token);
 
       // Get today's date in user's timezone
@@ -92,12 +112,16 @@ export class BotService {
         pageId = page.id;
       }
 
+      // SECURITY: Escape Markdown in user-generated content
+      const escapedTopic = TelegramService.escapeMarkdown(topicProperty);
+      const escapedContent = TelegramService.escapeMarkdown(content);
+
       // Format message with requested structure
       const replyText = config.prompt_source === 'agent'
         ? 'Reply to this message to log your response.'
         : 'Reply to this message to log your response to Notion.';
 
-      const message = `${greeting}\n\n${emoji} ${formattedDate} - ${promptLabel}\n🎯 ${topicProperty}\n\n${content}\n\n💬 ${replyText}`;
+      const message = `${greeting}\n\n${emoji} ${formattedDate} - ${promptLabel}\n🎯 ${escapedTopic}\n\n${escapedContent}\n\n💬 ${replyText}`;
 
       await telegram.sendMessage(config.telegram_chat_id, message);
 
@@ -223,5 +247,54 @@ export class BotService {
     const diff = Math.abs(currentTotalMinutes - scheduledTotalMinutes);
 
     return diff <= 5;
+  }
+
+  /**
+   * IDEMPOTENCY: Check if we've already sent a prompt of this type today
+   * Prevents duplicate sends within the cron window
+   */
+  static async hasAlreadySentToday(
+    userId: string,
+    type: 'morning' | 'evening',
+    timezone: string
+  ): Promise<boolean> {
+    try {
+      const supabase = getServerSupabase();
+      const { data: state } = await supabase
+        .from('bot_state')
+        .select('last_prompt_type, last_prompt_sent_at')
+        .eq('user_id', userId)
+        .single();
+
+      if (!state || !state.last_prompt_sent_at || state.last_prompt_type !== type) {
+        return false;
+      }
+
+      // Get today's date in user's timezone
+      const now = new Date();
+      const todayInUserTz = format(toZonedTime(now, timezone), 'yyyy-MM-dd');
+
+      // Get the date of last send in user's timezone
+      const lastSentDate = new Date(state.last_prompt_sent_at);
+      const lastSentInUserTz = format(toZonedTime(lastSentDate, timezone), 'yyyy-MM-dd');
+
+      // Check if we already sent this type today
+      const alreadySent = todayInUserTz === lastSentInUserTz;
+
+      if (alreadySent) {
+        SafeLogger.info('Duplicate send prevented', {
+          userId,
+          type,
+          todayInUserTz,
+          lastSentInUserTz,
+        });
+      }
+
+      return alreadySent;
+    } catch (error: any) {
+      // If there's an error checking (e.g., no state record), allow the send
+      SafeLogger.warn('Error checking sent-today status', { error: error.message });
+      return false;
+    }
   }
 }

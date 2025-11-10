@@ -1,6 +1,6 @@
 import { router, protectedProcedure } from './trpc';
 import { z } from 'zod';
-import { getServerSupabase } from '@/lib/supabase';
+import { getServerSupabase } from '@/lib/supabase-server';
 import { TelegramService } from './services/telegram';
 import { BotService } from './services/bot';
 import { agentRouter } from './routers/agent';

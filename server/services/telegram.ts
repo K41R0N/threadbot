@@ -10,6 +10,35 @@ export class TelegramService {
   }
 
   /**
+   * Escape Markdown special characters to prevent formatting issues
+   * SECURITY: Prevents user content from breaking message formatting
+   */
+  static escapeMarkdown(text: string): string {
+    // Escape Telegram Markdown special characters
+    // Reference: https://core.telegram.org/bots/api#markdown-style
+    return text
+      .replace(/\\/g, '\\\\')   // Backslash must be first
+      .replace(/\*/g, '\\*')    // Bold
+      .replace(/_/g, '\\_')     // Italic
+      .replace(/\[/g, '\\[')    // Link opening
+      .replace(/\]/g, '\\]')    // Link closing
+      .replace(/\(/g, '\\(')    // Link URL opening
+      .replace(/\)/g, '\\)')    // Link URL closing
+      .replace(/~/g, '\\~')     // Strikethrough
+      .replace(/`/g, '\\`')     // Code
+      .replace(/>/g, '\\>')     // Quote
+      .replace(/#/g, '\\#')     // Header
+      .replace(/\+/g, '\\+')    // Unordered list
+      .replace(/-/g, '\\-')     // Unordered list / minus
+      .replace(/=/g, '\\=')     // Equals
+      .replace(/\|/g, '\\|')    // Table
+      .replace(/\{/g, '\\{')    // Curly brace
+      .replace(/\}/g, '\\}')    // Curly brace
+      .replace(/\./g, '\\.')    // Dot (for numbered lists)
+      .replace(/!/g, '\\!');    // Exclamation
+  }
+
+  /**
    * Send a message to a Telegram chat
    */
   async sendMessage(chatId: string, text: string): Promise<void> {

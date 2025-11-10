@@ -5,7 +5,7 @@
 
 import { z } from 'zod';
 import { protectedProcedure, router } from '../trpc';
-import { getServerSupabase } from '@/lib/supabase';
+import { getServerSupabase } from '@/lib/supabase-server';
 import { AIAgentService } from '../services/ai-agent';
 import { SafeLogger } from '@/lib/logger';
 
