@@ -2,7 +2,7 @@
 set -e
 
 # Script to generate Supabase types from database schema
-# Uses existing SUPABASE_SERVICE_ROLE_KEY for authentication
+# Uses SUPABASE_SERVICE_ROLE_KEY for direct database access (project-scoped, secure)
 
 echo "🔄 Generating Supabase types..."
 
@@ -23,40 +23,29 @@ PROJECT_REF=$(echo "$NEXT_PUBLIC_SUPABASE_URL" | sed -E 's|https://([^.]+)\.supa
 
 if [ -z "$PROJECT_REF" ]; then
   echo "❌ Error: Could not extract project reference from NEXT_PUBLIC_SUPABASE_URL"
+  echo "Expected format: https://xxxxx.supabase.co"
   exit 1
 fi
 
 echo "📋 Project Reference: $PROJECT_REF"
 
-# Build database URL using the service role key
-# Format: postgresql://postgres.{ref}:{service_role_key}@aws-0-{region}.pooler.supabase.com:6543/postgres
-DB_URL="postgresql://postgres.${PROJECT_REF}:${SUPABASE_SERVICE_ROLE_KEY}@aws-0-us-east-1.pooler.supabase.com:6543/postgres"
+# Build direct database connection URL using service role key
+# This is more secure than an access token (project-scoped vs account-wide)
+DB_URL="postgresql://postgres:${SUPABASE_SERVICE_ROLE_KEY}@db.${PROJECT_REF}.supabase.co:5432/postgres"
 
-# Generate types using Supabase CLI with linked project
-echo "🔗 Generating types using service role key..."
-npx supabase@latest gen types typescript \
-  --db-url "$DB_URL" \
-  > lib/database.types.ts 2>&1 || {
-    echo "⚠️  Connection pooler failed, trying direct connection..."
-
-    # Try direct connection format
-    DB_URL_DIRECT="postgresql://postgres:${SUPABASE_SERVICE_ROLE_KEY}@db.${PROJECT_REF}.supabase.co:5432/postgres"
-    npx supabase@latest gen types typescript \
-      --db-url "$DB_URL_DIRECT" \
-      > lib/database.types.ts 2>&1 || {
-        echo "❌ Error: Type generation failed with both connection methods"
-        echo "💡 Check that SUPABASE_SERVICE_ROLE_KEY is correct"
-        exit 1
-      }
-  }
+# Generate types using Supabase CLI
+echo "🔗 Connecting to database..."
+npx supabase@latest gen types typescript --db-url "$DB_URL" > lib/database.types.ts
 
 # Check if types were generated successfully
 if [ -s lib/database.types.ts ]; then
   echo "✅ Types generated successfully!"
-  echo "📝 File: lib/database.types.ts"
-  echo ""
-  wc -l lib/database.types.ts
+  echo "📝 File: lib/database.types.ts ($(wc -l < lib/database.types.ts) lines)"
 else
   echo "❌ Error: Type generation failed - file is empty or missing"
+  echo "Check that:"
+  echo "  1. SUPABASE_SERVICE_ROLE_KEY is correct"
+  echo "  2. Database is accessible from this network"
+  echo "  3. Project reference matches your Supabase project"
   exit 1
 fi
