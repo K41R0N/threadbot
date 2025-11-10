@@ -45,7 +45,11 @@ export default function DashboardPage() {
     !onboardingStatus.onboarding_skipped
   );
 
-  const skipOnboarding = trpc.agent.skipOnboarding.useMutation();
+  const skipOnboarding = trpc.agent.skipOnboarding.useMutation({
+    onError: () => {
+      toast.error('Failed to skip onboarding');
+    },
+  });
 
   const updateConfig = trpc.bot.updateConfig.useMutation({
     onSuccess: () => {

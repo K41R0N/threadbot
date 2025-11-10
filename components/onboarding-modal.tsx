@@ -14,11 +14,14 @@ interface OnboardingModalProps {
 export function OnboardingModal({ isOpen, onClose }: OnboardingModalProps) {
   const router = useRouter();
   const [currentStep, setCurrentStep] = useState(0);
+  const utils = trpc.useUtils();
 
   const completeOnboarding = trpc.agent.completeOnboarding.useMutation({
-    onSuccess: () => {
+    onSuccess: async () => {
       toast.success('Welcome to Threadbot!');
-      onClose();
+      // Invalidate query to update derived state in parent
+      await utils.agent.getOnboardingStatus.invalidate();
+      // Navigate to agent creation (modal closes via derived state)
       router.push('/agent/create');
     },
     onError: () => {
@@ -27,8 +30,12 @@ export function OnboardingModal({ isOpen, onClose }: OnboardingModalProps) {
   });
 
   const skipOnboarding = trpc.agent.skipOnboarding.useMutation({
-    onSuccess: () => {
-      onClose();
+    onSuccess: async () => {
+      // Invalidate query to update derived state in parent (modal closes automatically)
+      await utils.agent.getOnboardingStatus.invalidate();
+    },
+    onError: () => {
+      toast.error('Failed to skip onboarding');
     },
   });
 
