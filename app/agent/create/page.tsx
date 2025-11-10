@@ -32,6 +32,7 @@ export default function CreateDatabasePage() {
   const [competitorUrls, setCompetitorUrls] = useState<string[]>([]);
   const [additionalContext, setAdditionalContext] = useState('');
   const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   const [useClaude, setUseClaude] = useState(false);
   const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
   const [generationProgress, setGenerationProgress] = useState('Initializing...');
@@ -69,10 +70,10 @@ export default function CreateDatabasePage() {
     onSuccess: (data) => {
       const response = data as GenerationMutationResponse;
       if (response.success) {
-        const monthYear = startDate.slice(0, 7);
         toast.success(`Generated ${response.totalPrompts} prompts!`);
         setTimeout(() => {
-          router.push(`/agent/database/${monthYear}`);
+          // Redirect to date-range view to show all prompts continuously
+          router.push(`/agent/database/range/${startDate}/${endDate}`);
         }, 1500);
       } else if (response.needsCredits) {
         // No credits remaining
@@ -137,7 +138,10 @@ export default function CreateDatabasePage() {
     const start = new Date(startDate);
     const end = new Date(start);
     end.setDate(end.getDate() + 29); // 30 days total
-    const endDate = end.toISOString().split('T')[0];
+    const calculatedEndDate = end.toISOString().split('T')[0];
+
+    // Store endDate in state for the redirect
+    setEndDate(calculatedEndDate);
 
     try {
       // Generate themes first
@@ -158,7 +162,7 @@ export default function CreateDatabasePage() {
       // Then generate all prompts
       await generatePrompts.mutateAsync({
         startDate,
-        endDate,
+        endDate: calculatedEndDate,
         useClaude,
       });
     } catch (error: unknown) {
