@@ -1,6 +1,6 @@
 import { router, protectedProcedure } from './trpc';
 import { z } from 'zod';
-import { getServerSupabase } from '@/lib/supabase';
+import { getServerSupabase } from '@/lib/supabase-server';
 import { TelegramService } from './services/telegram';
 import { BotService } from './services/bot';
 import { agentRouter } from './routers/agent';
@@ -14,7 +14,7 @@ export const appRouter = router({
       // SECURITY: Only select non-sensitive fields. Never send tokens to client!
       const { data, error } = await supabase
         .from('bot_configs')
-        .select('id, user_id, notion_database_id, telegram_chat_id, timezone, morning_time, evening_time, is_active, prompt_source, created_at, updated_at')
+        .select('id, user_id, notion_database_id, telegram_chat_id, timezone, morning_time, evening_time, is_active, prompt_source, last_webhook_setup_at, last_webhook_status, last_webhook_error, created_at, updated_at')
         .eq('user_id', ctx.userId)
         .single();
 
@@ -71,7 +71,7 @@ export const appRouter = router({
             is_active: input.isActive,
             prompt_source: 'notion', // Default to notion for new configs
           })
-          .select('id, user_id, notion_database_id, telegram_chat_id, timezone, morning_time, evening_time, is_active, prompt_source, created_at, updated_at')
+          .select('id, user_id, notion_database_id, telegram_chat_id, timezone, morning_time, evening_time, is_active, prompt_source, last_webhook_setup_at, last_webhook_status, last_webhook_error, created_at, updated_at')
           .single();
 
         if (error) {
@@ -92,10 +92,10 @@ export const appRouter = router({
     // Update bot configuration
     updateConfig: protectedProcedure
       .input(z.object({
-        notionToken: z.string().optional(),
-        notionDatabaseId: z.string().optional(),
-        telegramBotToken: z.string().optional(),
-        telegramChatId: z.string().optional(),
+        notionToken: z.string().nullable().optional(),
+        notionDatabaseId: z.string().nullable().optional(),
+        telegramBotToken: z.string().nullable().optional(),
+        telegramChatId: z.string().nullable().optional(),
         timezone: z.string().optional(),
         morningTime: z.string().optional(),
         eveningTime: z.string().optional(),
@@ -104,12 +104,26 @@ export const appRouter = router({
       }))
       .mutation(async ({ ctx, input }) => {
         const supabase = getServerSupabase();
-        
-        const updateData: any = {};
-        if (input.notionToken) updateData.notion_token = input.notionToken;
-        if (input.notionDatabaseId) updateData.notion_database_id = input.notionDatabaseId;
-        if (input.telegramBotToken) updateData.telegram_bot_token = input.telegramBotToken;
-        if (input.telegramChatId) updateData.telegram_chat_id = input.telegramChatId;
+
+        // Type-safe update data for bot_configs table
+        type BotConfigUpdate = {
+          notion_token?: string | null;
+          notion_database_id?: string | null;
+          telegram_bot_token?: string | null;
+          telegram_chat_id?: string | null;
+          timezone?: string;
+          morning_time?: string;
+          evening_time?: string;
+          is_active?: boolean;
+          prompt_source?: 'notion' | 'agent';
+        };
+
+        const updateData: BotConfigUpdate = {};
+        // Support clearing tokens by distinguishing undefined (not provided) from null (clear)
+        if (input.notionToken !== undefined) updateData.notion_token = input.notionToken;
+        if (input.notionDatabaseId !== undefined) updateData.notion_database_id = input.notionDatabaseId;
+        if (input.telegramBotToken !== undefined) updateData.telegram_bot_token = input.telegramBotToken;
+        if (input.telegramChatId !== undefined) updateData.telegram_chat_id = input.telegramChatId;
         if (input.timezone) updateData.timezone = input.timezone;
         if (input.morningTime) updateData.morning_time = input.morningTime;
         if (input.eveningTime) updateData.evening_time = input.eveningTime;
@@ -120,7 +134,7 @@ export const appRouter = router({
           .from('bot_configs')
           .update(updateData)
           .eq('user_id', ctx.userId)
-          .select('id, user_id, notion_database_id, telegram_chat_id, timezone, morning_time, evening_time, is_active, prompt_source, created_at, updated_at')
+          .select('id, user_id, notion_database_id, telegram_chat_id, timezone, morning_time, evening_time, is_active, prompt_source, last_webhook_setup_at, last_webhook_status, last_webhook_error, created_at, updated_at')
           .single();
 
         if (error) {
@@ -156,11 +170,31 @@ export const appRouter = router({
         const telegram = new TelegramService(config.telegram_bot_token);
         const success = await telegram.setWebhook(webhookUrl, secretToken);
 
+        // Persist webhook health status
+        await supabase
+          .from('bot_configs')
+          .update({
+            last_webhook_setup_at: new Date().toISOString(),
+            last_webhook_status: success ? 'success' : 'failed',
+            last_webhook_error: success ? null : 'Webhook setup returned false',
+          })
+          .eq('user_id', ctx.userId);
+
         return {
           success,
           message: success ? 'Webhook configured successfully' : 'Failed to configure webhook',
         };
       } catch (error: any) {
+        // Persist webhook error
+        await supabase
+          .from('bot_configs')
+          .update({
+            last_webhook_setup_at: new Date().toISOString(),
+            last_webhook_status: 'failed',
+            last_webhook_error: error.message,
+          })
+          .eq('user_id', ctx.userId);
+
         return {
           success: false,
           message: error.message,

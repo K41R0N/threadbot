@@ -5,7 +5,7 @@
 
 import { z } from 'zod';
 import { protectedProcedure, router } from '../trpc';
-import { getServerSupabase } from '@/lib/supabase';
+import { getServerSupabase } from '@/lib/supabase-server';
 import { AIAgentService } from '../services/ai-agent';
 import { SafeLogger } from '@/lib/logger';
 
@@ -462,7 +462,13 @@ export const agentRouter = router({
     .mutation(async ({ ctx, input }) => {
       const supabase = getServerSupabase();
 
-      const updateData: any = {};
+      // Type-safe update data for user_prompts table
+      type PromptUpdate = {
+        prompts?: string[];
+        status?: 'draft' | 'scheduled' | 'sent';
+      };
+
+      const updateData: PromptUpdate = {};
       if (input.prompts) updateData.prompts = input.prompts;
       if (input.status) updateData.status = input.status;
 

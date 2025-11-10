@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSupabase } from '@/lib/supabase';
+import { getServerSupabase } from '@/lib/supabase-server';
 import { BotService } from '@/server/services/bot';
 import { SafeLogger } from '@/lib/logger';
 

@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { trpc } from '@/lib/trpc';
 import { toast } from 'sonner';
+import { AuthenticatedLayout } from '@/components/layout/authenticated-layout';
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -61,12 +62,79 @@ export default function SettingsPage() {
     }
   }, [isLoaded, isSignedIn, config, configLoading, router]);
 
-  if (!config) return null;
+  // Loading state
+  if (configLoading || !config) {
+    return (
+      <div className="min-h-screen bg-white">
+        <header className="border-b-2 border-black">
+          <div className="container mx-auto px-4 py-6">
+            <div className="flex justify-between items-center mb-4">
+              <h1 className="text-4xl font-display">THREADBOT</h1>
+              <div className="w-24 h-10 bg-gray-200 animate-pulse rounded" />
+            </div>
+            <div className="text-sm text-gray-600">
+              <span className="font-display">Settings</span>
+            </div>
+          </div>
+        </header>
+
+        <div className="container mx-auto px-4 py-12 max-w-3xl">
+          <div className="border-2 border-gray-200 p-8 mb-6 animate-pulse">
+            <div className="h-8 w-48 bg-gray-200 mb-6 rounded" />
+            <div className="space-y-4">
+              <div className="h-10 bg-gray-200 rounded" />
+              <div className="h-10 bg-gray-200 rounded" />
+              <div className="h-10 bg-gray-200 rounded" />
+            </div>
+          </div>
+
+          <div className="border-2 border-gray-200 p-8 mb-6 animate-pulse">
+            <div className="h-8 w-48 bg-gray-200 mb-6 rounded" />
+            <div className="space-y-4">
+              <div className="h-10 bg-gray-200 rounded" />
+              <div className="h-10 bg-gray-200 rounded" />
+            </div>
+          </div>
+
+          <div className="border-2 border-gray-200 p-8 animate-pulse">
+            <div className="h-8 w-48 bg-gray-200 mb-6 rounded" />
+            <div className="space-y-4">
+              <div className="h-10 bg-gray-200 rounded" />
+              <div className="h-10 bg-gray-200 rounded" />
+              <div className="h-10 bg-gray-200 rounded" />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const handleClearNotionToken = () => {
+    setNotionToken('');
+    toast.info('Notion token will be cleared when you save');
+  };
+
+  const handleClearTelegramToken = () => {
+    setTelegramBotToken('');
+    toast.info('Telegram bot token will be cleared when you save');
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const updateData: any = {
+    // Type-safe update data matching server schema
+    type ConfigUpdate = {
+      timezone: string;
+      morningTime: string;
+      eveningTime: string;
+      promptSource: 'notion' | 'agent';
+      notionToken?: string | null;
+      notionDatabaseId?: string | null;
+      telegramChatId?: string;
+      telegramBotToken?: string | null;
+    };
+
+    const updateData: ConfigUpdate = {
       timezone,
       morningTime,
       eveningTime,
@@ -75,16 +143,32 @@ export default function SettingsPage() {
 
     // Only update Notion settings if using Notion source
     if (promptSource === 'notion') {
-      if (notionToken) updateData.notionToken = notionToken;
-      if (databaseId !== config.notion_database_id) updateData.notionDatabaseId = databaseId;
+      // Send null to clear, non-empty string to update, undefined to keep
+      if (notionToken === '') {
+        updateData.notionToken = null; // Clear token
+      } else if (notionToken.trim()) {
+        updateData.notionToken = notionToken; // Update token
+      }
+
+      if (databaseId !== config.notion_database_id) {
+        if (databaseId === '') {
+          updateData.notionDatabaseId = null; // Clear database ID
+        } else {
+          updateData.notionDatabaseId = databaseId;
+        }
+      }
     }
 
     if (telegramChatId !== config.telegram_chat_id) updateData.telegramChatId = telegramChatId;
 
-    // If telegram bot token is updated, reconfigure webhook
+    // Handle telegram bot token clearing or updating
     const shouldUpdateWebhook = telegramBotToken.trim() !== '';
-    if (shouldUpdateWebhook) {
-      updateData.telegramBotToken = telegramBotToken;
+    const shouldClearToken = notionToken === '' || telegramBotToken === '';
+
+    if (telegramBotToken === '') {
+      updateData.telegramBotToken = null; // Clear token
+    } else if (shouldUpdateWebhook) {
+      updateData.telegramBotToken = telegramBotToken; // Update token
     }
 
     try {
@@ -116,33 +200,7 @@ export default function SettingsPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-white">
-      <div className="border-b-2 border-black">
-        <div className="container mx-auto px-4 py-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-4">
-              <Button variant="outline" onClick={() => router.push('/dashboard')}>
-                ← BACK
-              </Button>
-              <h1 className="text-4xl font-display">SETTINGS</h1>
-            </div>
-            <Button
-              variant="outline"
-              onClick={() => router.push('/dashboard')}
-            >
-              DASHBOARD
-            </Button>
-          </div>
-
-          {/* Breadcrumb */}
-          <div className="text-sm text-gray-600">
-            <span className="cursor-pointer hover:text-black" onClick={() => router.push('/dashboard')}>Dashboard</span>
-            <span className="mx-2">→</span>
-            <span>Settings</span>
-          </div>
-        </div>
-      </div>
-
+    <AuthenticatedLayout currentPage="settings" showSettingsButton={false}>
       <div className="container mx-auto px-4 py-12 max-w-3xl">
         <form onSubmit={handleSubmit} className="space-y-8">
           {/* Prompt Source Selection */}
@@ -214,6 +272,14 @@ export default function SettingsPage() {
                   >
                     {showNotionToken ? 'HIDE' : 'SHOW'}
                   </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleClearNotionToken}
+                    className="text-red-600 hover:bg-red-50"
+                  >
+                    CLEAR
+                  </Button>
                 </div>
               </div>
 
@@ -254,6 +320,14 @@ export default function SettingsPage() {
                     onClick={() => setShowTelegramToken(!showTelegramToken)}
                   >
                     {showTelegramToken ? 'HIDE' : 'SHOW'}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleClearTelegramToken}
+                    className="text-red-600 hover:bg-red-50"
+                  >
+                    CLEAR
                   </Button>
                 </div>
                 <p className="text-xs text-gray-500 mt-2">
@@ -339,6 +413,6 @@ export default function SettingsPage() {
           </div>
         </form>
       </div>
-    </div>
+    </AuthenticatedLayout>
   );
 }
