@@ -552,18 +552,24 @@ export const agentRouter = router({
     const supabase = getServerSupabase();
 
     // SECURITY: Only update onboarding flags - preserve tier and credits
-    // Use update instead of upsert to avoid overwriting existing subscription data
-    const { error } = await supabase
+    // Use update with select to check if row exists
+    const { data, error } = await supabase
       .from('user_subscriptions')
       .update({
         onboarding_completed: true,
         onboarding_skipped: false,
       })
-      .eq('user_id', ctx.userId);
+      .eq('user_id', ctx.userId)
+      .select()
+      .maybeSingle();
 
-    // If row doesn't exist, create it with defaults (first-time user)
-    if (error && error.code === 'PGRST116') {
-      await supabase
+    if (error) {
+      throw new Error('Failed to update onboarding status');
+    }
+
+    // If no row exists, create it with defaults (first-time user)
+    if (!data) {
+      const { error: insertError } = await supabase
         .from('user_subscriptions')
         .insert({
           user_id: ctx.userId,
@@ -572,8 +578,10 @@ export const agentRouter = router({
           onboarding_completed: true,
           onboarding_skipped: false,
         });
-    } else if (error) {
-      throw new Error('Failed to update onboarding status');
+
+      if (insertError) {
+        throw new Error('Failed to create onboarding status');
+      }
     }
 
     return { success: true };
@@ -584,18 +592,24 @@ export const agentRouter = router({
     const supabase = getServerSupabase();
 
     // SECURITY: Only update onboarding flags - preserve tier and credits
-    // Use update instead of upsert to avoid overwriting existing subscription data
-    const { error } = await supabase
+    // Use update with select to check if row exists
+    const { data, error } = await supabase
       .from('user_subscriptions')
       .update({
         onboarding_completed: false,
         onboarding_skipped: true,
       })
-      .eq('user_id', ctx.userId);
+      .eq('user_id', ctx.userId)
+      .select()
+      .maybeSingle();
 
-    // If row doesn't exist, create it with defaults (first-time user)
-    if (error && error.code === 'PGRST116') {
-      await supabase
+    if (error) {
+      throw new Error('Failed to update onboarding status');
+    }
+
+    // If no row exists, create it with defaults (first-time user)
+    if (!data) {
+      const { error: insertError } = await supabase
         .from('user_subscriptions')
         .insert({
           user_id: ctx.userId,
@@ -604,8 +618,10 @@ export const agentRouter = router({
           onboarding_completed: false,
           onboarding_skipped: true,
         });
-    } else if (error) {
-      throw new Error('Failed to update onboarding status');
+
+      if (insertError) {
+        throw new Error('Failed to create onboarding status');
+      }
     }
 
     return { success: true };
