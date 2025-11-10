@@ -4,6 +4,7 @@ import { getServerSupabase } from '@/lib/supabase-server';
 import { TelegramService } from './services/telegram';
 import { BotService } from './services/bot';
 import { agentRouter } from './routers/agent';
+import type { Database } from '@/lib/database.types';
 
 export const appRouter = router({
   bot: router({
@@ -56,21 +57,23 @@ export const appRouter = router({
       }))
       .mutation(async ({ ctx, input }) => {
         const supabase = getServerSupabase();
-        
+
+        const insertData: Database['public']['Tables']['bot_configs']['Insert'] = {
+          user_id: ctx.userId,
+          notion_token: input.notionToken,
+          notion_database_id: input.notionDatabaseId,
+          telegram_bot_token: input.telegramBotToken || null,
+          telegram_chat_id: input.telegramChatId || null,
+          timezone: input.timezone,
+          morning_time: input.morningTime,
+          evening_time: input.eveningTime,
+          is_active: input.isActive,
+          prompt_source: 'notion', // Default to notion for new configs
+        };
+
         const { data, error } = await supabase
           .from('bot_configs')
-          .insert({
-            user_id: ctx.userId,
-            notion_token: input.notionToken,
-            notion_database_id: input.notionDatabaseId,
-            telegram_bot_token: input.telegramBotToken || null,
-            telegram_chat_id: input.telegramChatId || null,
-            timezone: input.timezone,
-            morning_time: input.morningTime,
-            evening_time: input.eveningTime,
-            is_active: input.isActive,
-            prompt_source: 'notion', // Default to notion for new configs
-          })
+          .insert(insertData)
           .select('id, user_id, notion_database_id, telegram_chat_id, timezone, morning_time, evening_time, is_active, prompt_source, last_webhook_setup_at, last_webhook_status, last_webhook_error, created_at, updated_at')
           .single();
 
@@ -79,11 +82,13 @@ export const appRouter = router({
         }
 
         // Initialize bot state
+        const stateData: Database['public']['Tables']['bot_state']['Insert'] = {
+          user_id: ctx.userId,
+        };
+
         await supabase
           .from('bot_state')
-          .insert({
-            user_id: ctx.userId,
-          });
+          .insert(stateData);
 
         // SECURITY: Return config without sensitive tokens
         return data;
@@ -106,19 +111,7 @@ export const appRouter = router({
         const supabase = getServerSupabase();
 
         // Type-safe update data for bot_configs table
-        type BotConfigUpdate = {
-          notion_token?: string | null;
-          notion_database_id?: string | null;
-          telegram_bot_token?: string | null;
-          telegram_chat_id?: string | null;
-          timezone?: string;
-          morning_time?: string;
-          evening_time?: string;
-          is_active?: boolean;
-          prompt_source?: 'notion' | 'agent';
-        };
-
-        const updateData: BotConfigUpdate = {};
+        const updateData: Database['public']['Tables']['bot_configs']['Update'] = {};
         // Support clearing tokens by distinguishing undefined (not provided) from null (clear)
         if (input.notionToken !== undefined) updateData.notion_token = input.notionToken;
         if (input.notionDatabaseId !== undefined) updateData.notion_database_id = input.notionDatabaseId;
@@ -171,13 +164,15 @@ export const appRouter = router({
         const success = await telegram.setWebhook(webhookUrl, secretToken);
 
         // Persist webhook health status
+        const webhookStatus: Database['public']['Tables']['bot_configs']['Update'] = {
+          last_webhook_setup_at: new Date().toISOString(),
+          last_webhook_status: success ? 'success' : 'failed',
+          last_webhook_error: success ? null : 'Webhook setup returned false',
+        };
+
         await supabase
           .from('bot_configs')
-          .update({
-            last_webhook_setup_at: new Date().toISOString(),
-            last_webhook_status: success ? 'success' : 'failed',
-            last_webhook_error: success ? null : 'Webhook setup returned false',
-          })
+          .update(webhookStatus)
           .eq('user_id', ctx.userId);
 
         return {
@@ -186,13 +181,15 @@ export const appRouter = router({
         };
       } catch (error: any) {
         // Persist webhook error
+        const webhookError: Database['public']['Tables']['bot_configs']['Update'] = {
+          last_webhook_setup_at: new Date().toISOString(),
+          last_webhook_status: 'failed',
+          last_webhook_error: error.message,
+        };
+
         await supabase
           .from('bot_configs')
-          .update({
-            last_webhook_setup_at: new Date().toISOString(),
-            last_webhook_status: 'failed',
-            last_webhook_error: error.message,
-          })
+          .update(webhookError)
           .eq('user_id', ctx.userId);
 
         return {
