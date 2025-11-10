@@ -8,6 +8,7 @@ import { trpc } from '@/lib/trpc';
 import { toast } from 'sonner';
 import { AuthenticatedLayout } from '@/components/layout/authenticated-layout';
 import { OnboardingModal } from '@/components/onboarding-modal';
+import type { UserPrompt } from '@/lib/supabase-agent';
 
 interface AgentDatabase {
   monthKey: string;
@@ -111,10 +112,10 @@ export default function DashboardPage() {
   }
 
   // Group prompts by month to show existing databases
-  const agentDatabases: AgentDatabase[] = allPrompts?.reduce<AgentDatabase[]>((acc, prompt) => {
+  const agentDatabases: AgentDatabase[] = (allPrompts as UserPrompt[] | undefined)?.reduce<AgentDatabase[]>((acc, prompt) => {
     const monthKey = prompt.date.slice(0, 7); // "2025-11"
     if (!acc.find(db => db.monthKey === monthKey)) {
-      const monthPrompts = allPrompts.filter(p => p.date.startsWith(monthKey));
+      const monthPrompts = (allPrompts as UserPrompt[]).filter(p => p.date.startsWith(monthKey));
       const morningCount = monthPrompts.filter(p => p.post_type === 'morning').length;
       const eveningCount = monthPrompts.filter(p => p.post_type === 'evening').length;
 
