@@ -6,6 +6,7 @@ import { useUser } from '@clerk/nextjs';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { trpc } from '@/lib/trpc';
+
 import { toast } from 'sonner';
 
 export default function SetupNotionPage() {

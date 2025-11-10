@@ -11,6 +11,7 @@ import { OnboardingModal } from '@/components/onboarding-modal';
 import type { UserPrompt } from '@/lib/supabase-agent';
 import type { BotConfig } from '@/lib/supabase';
 
+
 interface AgentDatabase {
   monthKey: string;
   name: string;

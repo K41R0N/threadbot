@@ -1,19 +1,35 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './database';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing Supabase environment variables');
-}
-
 /**
  * Client-side Supabase client with anonymous key
  * Safe to use in browser/client components
  * Subject to Row Level Security (RLS) policies
+ *
+ * Lazy initialization to allow build-time code analysis without throwing errors
  */
-export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey);
+let supabaseInstance: ReturnType<typeof createClient<Database>> | null = null;
+
+function getSupabaseClient() {
+  if (!supabaseInstance) {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+    if (!supabaseUrl || !supabaseAnonKey) {
+      throw new Error('Missing Supabase environment variables');
+    }
+
+    supabaseInstance = createClient<Database>(supabaseUrl, supabaseAnonKey);
+  }
+  return supabaseInstance;
+}
+
+export const supabase = new Proxy({} as ReturnType<typeof createClient<Database>>, {
+  get: (_, prop) => {
+    const client = getSupabaseClient();
+    return client[prop as keyof typeof client];
+  }
+});
 
 // Database types
 export type BotConfig = {

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useUser } from '@clerk/nextjs';
 import { trpc } from '@/lib/trpc';
 
+
 export default function OnboardingPage() {
   const router = useRouter();
   const { isLoaded, isSignedIn } = useUser();
