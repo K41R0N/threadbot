@@ -1,6 +1,6 @@
 import { NotionService } from './notion';
 import { TelegramService } from './telegram';
-import { getServerSupabase } from '@/lib/supabase-server';
+import { serverSupabase } from '@/lib/supabase-server';
 import type { BotConfig } from '@/lib/supabase';
 import { format, toZonedTime } from 'date-fns-tz';
 import { SafeLogger } from '@/lib/logger';
@@ -54,7 +54,7 @@ export class BotService {
       // Fetch prompt from appropriate source
       if (config.prompt_source === 'agent') {
         // Fetch from agent database
-        const supabase = getServerSupabase();
+        const supabase = serverSupabase;
         const { data: prompt } = await supabase
           .from('user_prompts')
           .select('*')
@@ -133,7 +133,7 @@ export class BotService {
       await telegram.sendMessage(config.telegram_chat_id, message);
 
       // Update bot state
-      const supabase = getServerSupabase();
+      const supabase = serverSupabase;
       await supabase
         .from('bot_state')
         .upsert({
@@ -167,7 +167,7 @@ export class BotService {
   ): Promise<{ success: boolean; message?: string }> {
     try {
       // Get last prompt page ID from bot state
-      const supabase = getServerSupabase();
+      const supabase = serverSupabase;
       const { data: state } = await supabase
         .from('bot_state')
         .select('last_prompt_page_id')
@@ -273,7 +273,7 @@ export class BotService {
     timezone: string
   ): Promise<boolean> {
     try {
-      const supabase = getServerSupabase();
+      const supabase = serverSupabase;
       const { data: state } = await supabase
         .from('bot_state')
         .select('last_prompt_type, last_prompt_sent_at')

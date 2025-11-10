@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSupabase } from '@/lib/supabase-server';
+import { serverSupabase } from '@/lib/supabase-server';
 import { BotService } from '@/server/services/bot';
 import { SafeLogger } from '@/lib/logger';
 import type { BotConfig } from '@/lib/supabase';
@@ -45,7 +45,7 @@ export async function POST(
     }
 
     // Get bot configuration for this user
-    const supabase = getServerSupabase();
+    const supabase = serverSupabase;
     const { data, error } = await supabase
       .from('bot_configs')
       .select('*')

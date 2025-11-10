@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSupabase } from '@/lib/supabase-server';
+import { serverSupabase } from '@/lib/supabase-server';
 import { auth } from '@clerk/nextjs/server';
 import type { BotConfig, BotState } from '@/lib/supabase';
 
@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
 
     const userId = authenticatedUserId;
 
-    const supabase = getServerSupabase();
+    const supabase = serverSupabase;
 
     // Get bot config
     const { data: config, error } = await supabase

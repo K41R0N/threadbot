@@ -1,6 +1,6 @@
 import { router, protectedProcedure } from './trpc';
 import { z } from 'zod';
-import { getServerSupabase } from '@/lib/supabase-server';
+import { serverSupabase } from '@/lib/supabase-server';
 import { TelegramService } from './services/telegram';
 import { BotService } from './services/bot';
 import { agentRouter } from './routers/agent';
@@ -10,7 +10,7 @@ export const appRouter = router({
   bot: router({
     // Get user's bot configuration (excluding sensitive tokens)
     getConfig: protectedProcedure.query(async ({ ctx }) => {
-      const supabase = getServerSupabase();
+      const supabase = serverSupabase;
 
       // SECURITY: Only select non-sensitive fields. Never send tokens to client!
       const { data, error } = await supabase
@@ -28,7 +28,7 @@ export const appRouter = router({
 
     // Get user's bot state
     getState: protectedProcedure.query(async ({ ctx }) => {
-      const supabase = getServerSupabase();
+      const supabase = serverSupabase;
       
       const { data, error } = await supabase
         .from('bot_state')
@@ -56,7 +56,7 @@ export const appRouter = router({
         isActive: z.boolean(),
       }))
       .mutation(async ({ ctx, input }) => {
-        const supabase = getServerSupabase();
+        const supabase = serverSupabase;
 
         const insertData: Database['public']['Tables']['bot_configs']['Insert'] = {
           user_id: ctx.userId,
@@ -108,7 +108,7 @@ export const appRouter = router({
         promptSource: z.enum(['notion', 'agent']).optional(),
       }))
       .mutation(async ({ ctx, input }) => {
-        const supabase = getServerSupabase();
+        const supabase = serverSupabase;
 
         // Type-safe update data for bot_configs table
         const updateData: Database['public']['Tables']['bot_configs']['Update'] = {};
@@ -140,7 +140,7 @@ export const appRouter = router({
 
     // Set up Telegram webhook (server-side, token never exposed to client)
     setupWebhookForUser: protectedProcedure.mutation(async ({ ctx }) => {
-      const supabase = getServerSupabase();
+      const supabase = serverSupabase;
 
       // Get full config from database (server-side only)
       const { data: config, error } = await supabase
@@ -248,7 +248,7 @@ export const appRouter = router({
         type: z.enum(['morning', 'evening']),
       }))
       .mutation(async ({ ctx, input }) => {
-        const supabase = getServerSupabase();
+        const supabase = serverSupabase;
         
         const { data: config, error } = await supabase
           .from('bot_configs')
