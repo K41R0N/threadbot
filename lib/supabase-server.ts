@@ -17,7 +17,7 @@
  * The service role key bypasses ALL Row Level Security (RLS) policies.
  */
 
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from './database.types';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -32,8 +32,7 @@ if (!serviceRoleKey) {
 }
 
 // Singleton instance for better performance
-type SupabaseClient = ReturnType<typeof createClient<Database>>;
-let serverSupabaseInstance: SupabaseClient | null = null;
+let serverSupabaseInstance: SupabaseClient<Database> | null = null;
 
 /**
  * Get server-side Supabase client with service role privileges
@@ -43,7 +42,7 @@ let serverSupabaseInstance: SupabaseClient | null = null;
  *
  * Uses singleton pattern to avoid creating multiple client instances
  */
-export function getServerSupabase(): SupabaseClient {
+export function getServerSupabase(): SupabaseClient<Database> {
   if (!serverSupabaseInstance) {
     // Safe to use non-null assertion - we throw above if serviceRoleKey is undefined
     serverSupabaseInstance = createClient<Database>(supabaseUrl, serviceRoleKey!, {
