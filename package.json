@@ -8,9 +8,11 @@
   },
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "pnpm types:generate && next build",
+    "build:skip-types": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "types:generate": "bash scripts/generate-types.sh"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^1.2.12",

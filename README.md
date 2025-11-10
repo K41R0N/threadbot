@@ -24,6 +24,7 @@ pnpm install
 1. Create a project at [supabase.com](https://supabase.com)
 2. Copy your project URL and anon key
 3. Run the SQL schema (see `supabase/schema.sql`)
+4. **For automatic type generation**: Get a [Supabase Access Token](https://app.supabase.com/account/tokens) (needed for Vercel builds)
 
 ### 3. Set Up Clerk
 
@@ -62,8 +63,29 @@ Open [http://localhost:3000](http://localhost:3000)
 
 1. Push to GitHub
 2. Import project in Vercel
-3. Add environment variables
-4. Deploy
+3. Add environment variables (see below)
+4. **Important**: Add `SUPABASE_ACCESS_TOKEN` for automatic type generation
+5. Deploy
+
+#### Required Environment Variables
+
+```env
+# Supabase
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
+SUPABASE_ACCESS_TOKEN=your_supabase_access_token  # For type generation
+
+# Clerk
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=your_clerk_publishable_key
+CLERK_SECRET_KEY=your_clerk_secret_key
+
+# App
+NEXT_PUBLIC_APP_URL=https://your-app.vercel.app
+```
+
+> **Note**: Database types are auto-generated from your Supabase schema on every build.
+> See [docs/SUPABASE_TYPE_GENERATION.md](docs/SUPABASE_TYPE_GENERATION.md) for details.
 
 ### Set Up Cron Jobs
 
