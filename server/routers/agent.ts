@@ -517,4 +517,67 @@ export const agentRouter = router({
 
       return data;
     }),
+
+  // Get onboarding status
+  getOnboardingStatus: protectedProcedure.query(async ({ ctx }) => {
+    const supabase = getServerSupabase();
+
+    // Ensure subscription row exists
+    const { data } = await supabase
+      .from('user_subscriptions')
+      .select('onboarding_completed, onboarding_skipped')
+      .eq('user_id', ctx.userId)
+      .single();
+
+    // If no subscription row, create one
+    if (!data) {
+      await supabase
+        .from('user_subscriptions')
+        .insert({
+          user_id: ctx.userId,
+          tier: 'free',
+          claude_credits: 0,
+          onboarding_completed: false,
+          onboarding_skipped: false,
+        });
+
+      return { onboarding_completed: false, onboarding_skipped: false };
+    }
+
+    return data;
+  }),
+
+  // Mark onboarding as completed
+  completeOnboarding: protectedProcedure.mutation(async ({ ctx }) => {
+    const supabase = getServerSupabase();
+
+    await supabase
+      .from('user_subscriptions')
+      .upsert({
+        user_id: ctx.userId,
+        tier: 'free',
+        claude_credits: 0,
+        onboarding_completed: true,
+        onboarding_skipped: false,
+      });
+
+    return { success: true };
+  }),
+
+  // Skip onboarding
+  skipOnboarding: protectedProcedure.mutation(async ({ ctx }) => {
+    const supabase = getServerSupabase();
+
+    await supabase
+      .from('user_subscriptions')
+      .upsert({
+        user_id: ctx.userId,
+        tier: 'free',
+        claude_credits: 0,
+        onboarding_completed: false,
+        onboarding_skipped: true,
+      });
+
+    return { success: true };
+  }),
 });

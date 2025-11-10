@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { trpc } from '@/lib/trpc';
 import { toast } from 'sonner';
 import { AuthenticatedLayout } from '@/components/layout/authenticated-layout';
+import { OnboardingModal } from '@/components/onboarding-modal';
 
 interface AgentDatabase {
   monthKey: string;
@@ -22,6 +23,7 @@ export default function DashboardPage() {
   const router = useRouter();
   const { isSignedIn, isLoaded } = useUser();
   const [showUpgrade, setShowUpgrade] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
 
   const { data: config, isLoading: configLoading } = trpc.bot.getConfig.useQuery(undefined, {
     enabled: isSignedIn,
@@ -29,8 +31,20 @@ export default function DashboardPage() {
 
   const { data: subscription } = trpc.agent.getSubscription.useQuery();
 
+  // Get onboarding status
+  const { data: onboardingStatus } = trpc.agent.getOnboardingStatus.useQuery(undefined, {
+    enabled: isSignedIn,
+  });
+
   // Get all user's prompt databases (grouped by month)
   const { data: allPrompts } = trpc.agent.getPrompts.useQuery({});
+
+  // Show onboarding modal for first-time users
+  useEffect(() => {
+    if (onboardingStatus && !onboardingStatus.onboarding_completed && !onboardingStatus.onboarding_skipped) {
+      setShowOnboarding(true);
+    }
+  }, [onboardingStatus]);
 
   const updateConfig = trpc.bot.updateConfig.useMutation({
     onSuccess: () => {
@@ -499,6 +513,9 @@ export default function DashboardPage() {
           </div>
         </div>
       )}
+
+      {/* Onboarding Modal */}
+      <OnboardingModal isOpen={showOnboarding} onClose={() => setShowOnboarding(false)} />
     </AuthenticatedLayout>
   );
 }

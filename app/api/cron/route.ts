@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSupabase } from '@/lib/supabase-server';
 import { BotService } from '@/server/services/bot';
 import { SafeLogger } from '@/lib/logger';
+import type { BotConfig } from '@/lib/supabase';
 
 // Set function timeout to 30 seconds (requires Vercel Pro)
 export const maxDuration = 30;
@@ -67,9 +68,9 @@ export async function GET(request: NextRequest) {
 
     // Process each bot
     const results = [];
-    for (const config of configs) {
+    for (const config of configs as BotConfig[]) {
       const scheduledTime = type === 'morning' ? config.morning_time : config.evening_time;
-      
+
       // Check if it's time to send this prompt
       if (BotService.shouldSendPrompt(scheduledTime, config.timezone, type)) {
         const result = await BotService.sendScheduledPrompt(config, type);

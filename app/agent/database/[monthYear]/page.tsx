@@ -74,7 +74,7 @@ export default function DatabasePage({ params }: { params: Promise<{ monthYear: 
 
     // Create CSV content
     const headers = ['Name', 'Date', 'Week Theme', 'Post Type', 'Status', 'Prompts'];
-    const rows = prompts.map((p) => [
+    const rows = (prompts as UserPrompt[]).map((p) => [
       p.name,
       p.date,
       p.week_theme,
@@ -103,7 +103,7 @@ export default function DatabasePage({ params }: { params: Promise<{ monthYear: 
   };
 
   // Group prompts by date
-  const promptsByDate = prompts?.reduce((acc: Record<string, UserPrompt[]>, prompt) => {
+  const promptsByDate = (prompts as UserPrompt[] | undefined)?.reduce((acc: Record<string, UserPrompt[]>, prompt) => {
     if (!acc[prompt.date]) {
       acc[prompt.date] = [];
     }
@@ -311,13 +311,13 @@ export default function DatabasePage({ params }: { params: Promise<{ monthYear: 
               </div>
               <div>
                 <div className="text-3xl font-display">
-                  {prompts.filter((p) => p.post_type === 'morning').length}
+                  {(prompts as UserPrompt[]).filter((p) => p.post_type === 'morning').length}
                 </div>
                 <div className="text-sm text-gray-600">Morning Prompts</div>
               </div>
               <div>
                 <div className="text-3xl font-display">
-                  {prompts.filter((p) => p.post_type === 'evening').length}
+                  {(prompts as UserPrompt[]).filter((p) => p.post_type === 'evening').length}
                 </div>
                 <div className="text-sm text-gray-600">Evening Prompts</div>
               </div>
