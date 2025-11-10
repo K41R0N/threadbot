@@ -48,7 +48,48 @@ export default function DashboardPage() {
     }
   }, [isLoaded, isSignedIn, config, configLoading, router]);
 
-  if (!config) return null;
+  // Loading state
+  if (configLoading || !config) {
+    return (
+      <div className="min-h-screen bg-white">
+        <header className="border-b-2 border-black">
+          <div className="container mx-auto px-4 py-6">
+            <div className="flex justify-between items-center mb-4">
+              <h1 className="text-4xl font-display">THREADBOT</h1>
+              <div className="flex items-center gap-3">
+                <div className="w-24 h-10 bg-gray-200 animate-pulse rounded" />
+                <div className="w-10 h-10 bg-gray-200 animate-pulse rounded-full" />
+              </div>
+            </div>
+            <div className="text-sm text-gray-600">
+              <span className="font-display">Dashboard</span>
+            </div>
+          </div>
+        </header>
+
+        <div className="container mx-auto px-4 py-12 max-w-6xl">
+          {/* Loading Skeleton */}
+          <div className="border-2 border-gray-200 p-8 mb-8 animate-pulse">
+            <div className="h-8 w-48 bg-gray-200 mb-4 rounded" />
+            <div className="h-6 w-32 bg-gray-200 rounded" />
+          </div>
+
+          <div className="border-2 border-gray-200 p-8 mb-8 animate-pulse">
+            <div className="h-8 w-64 bg-gray-200 mb-4 rounded" />
+            <div className="h-12 w-24 bg-gray-200 rounded" />
+          </div>
+
+          <div className="border-2 border-gray-200 p-8 animate-pulse">
+            <div className="h-8 w-48 bg-gray-200 mb-6 rounded" />
+            <div className="grid gap-4">
+              <div className="h-32 bg-gray-200 rounded" />
+              <div className="h-32 bg-gray-200 rounded" />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // Group prompts by month to show existing databases
   const agentDatabases: AgentDatabase[] = allPrompts?.reduce<AgentDatabase[]>((acc, prompt) => {
@@ -213,14 +254,31 @@ export default function DashboardPage() {
           </div>
 
           {!hasNotionDatabase && agentDatabases.length === 0 ? (
-            <div className="text-center py-12 text-gray-600">
-              <p className="text-xl mb-4">No databases yet</p>
-              <p className="mb-6">
-                Create your first AI-powered prompt calendar
-              </p>
-              <Button onClick={handleCreateNew}>
-                GET STARTED →
-              </Button>
+            <div className="border-2 border-dashed border-gray-300 rounded-lg p-12 text-center">
+              <div className="max-w-md mx-auto">
+                <div className="text-6xl mb-4">🤖</div>
+                <h3 className="text-2xl font-display mb-3">NO DATABASES YET</h3>
+                <p className="text-gray-600 mb-6">
+                  Create your first AI-generated prompt calendar. Our AI will analyze your brand and generate 60 personalized prompts (30 mornings + 30 evenings).
+                </p>
+                <Button onClick={handleCreateNew} className="mb-4">
+                  CREATE YOUR FIRST DATABASE →
+                </Button>
+                <div className="text-sm text-gray-500 mt-6 space-y-2">
+                  <div className="flex items-center justify-center gap-2">
+                    <span>✓</span>
+                    <span>AI analyzes your brand voice</span>
+                  </div>
+                  <div className="flex items-center justify-center gap-2">
+                    <span>✓</span>
+                    <span>Generates themed weekly prompts</span>
+                  </div>
+                  <div className="flex items-center justify-center gap-2">
+                    <span>✓</span>
+                    <span>Auto-delivers to Telegram daily</span>
+                  </div>
+                </div>
+              </div>
             </div>
           ) : (
             <div className="space-y-4">
@@ -262,42 +320,71 @@ export default function DashboardPage() {
               )}
 
               {/* Agent Databases */}
-              {agentDatabases.map((db: AgentDatabase) => (
-                <div
-                  key={db.monthKey}
-                  className="border-2 border-black p-6 hover:bg-gray-50 cursor-pointer transition"
-                  onClick={() => router.push(`/agent/database/${db.monthKey}`)}
-                >
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
-                        <span className="text-2xl">🤖</span>
-                        <h3 className="font-display text-2xl">{db.name}</h3>
-                        <span className="px-3 py-1 bg-blue-100 text-blue-800 text-xs font-display">AI AGENT</span>
-                        {getStatusBadge(db.status)}
-                      </div>
-                      <div className="flex items-center gap-4 text-sm text-gray-600">
-                        <span>{db.morningCount} morning prompts</span>
-                        <span>•</span>
-                        <span>{db.eveningCount} evening prompts</span>
-                        <span>•</span>
-                        <span>Created {db.createdAt ? new Date(db.createdAt).toLocaleDateString() : 'Unknown'}</span>
-                      </div>
-                      {db.status === 'active' && (
-                        <div className="mt-2 text-sm text-green-700">
-                          ✓ Connected to Telegram bot and active
+              {agentDatabases.map((db: AgentDatabase) => {
+                const totalPrompts = db.morningCount + db.eveningCount;
+                const expectedPrompts = 60; // 30 mornings + 30 evenings
+                const completionPercent = Math.round((totalPrompts / expectedPrompts) * 100);
+
+                return (
+                  <div
+                    key={db.monthKey}
+                    className="border-2 border-black p-6 hover:bg-gray-50 cursor-pointer transition"
+                    onClick={() => router.push(`/agent/database/${db.monthKey}`)}
+                  >
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-2">
+                          <span className="text-2xl">🤖</span>
+                          <h3 className="font-display text-2xl">{db.name}</h3>
+                          <span className="px-3 py-1 bg-blue-100 text-blue-800 text-xs font-display">AI AGENT</span>
+                          {getStatusBadge(db.status)}
                         </div>
-                      )}
-                      {db.status === 'connected' && (
-                        <div className="mt-2 text-sm text-blue-700">
-                          Connected to bot (activate in Settings)
+
+                        {/* Progress Indicator */}
+                        <div className="mb-3">
+                          <div className="flex items-center justify-between text-xs text-gray-600 mb-1">
+                            <span>{totalPrompts} of {expectedPrompts} prompts generated</span>
+                            <span className="font-display">{completionPercent}%</span>
+                          </div>
+                          <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+                            <div
+                              className={`h-full transition-all ${
+                                completionPercent === 100 ? 'bg-green-500' : 'bg-blue-500'
+                              }`}
+                              style={{ width: `${completionPercent}%` }}
+                            />
+                          </div>
                         </div>
-                      )}
+
+                        <div className="flex items-center gap-4 text-sm text-gray-600">
+                          <span>{db.morningCount} morning</span>
+                          <span>•</span>
+                          <span>{db.eveningCount} evening</span>
+                          <span>•</span>
+                          <span>Created {db.createdAt ? new Date(db.createdAt).toLocaleDateString() : 'Unknown'}</span>
+                        </div>
+
+                        {db.status === 'active' && (
+                          <div className="mt-2 text-sm text-green-700">
+                            ✓ Connected to Telegram bot and active
+                          </div>
+                        )}
+                        {db.status === 'connected' && (
+                          <div className="mt-2 text-sm text-blue-700">
+                            Connected to bot (activate in Settings)
+                          </div>
+                        )}
+                        {db.status === 'inactive' && totalPrompts < expectedPrompts && (
+                          <div className="mt-2 text-sm text-amber-700">
+                            ⚠ Incomplete - Click to continue generation
+                          </div>
+                        )}
+                      </div>
+                      <div className="text-4xl">→</div>
                     </div>
-                    <div className="text-4xl">→</div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

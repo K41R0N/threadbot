@@ -61,7 +61,52 @@ export default function SettingsPage() {
     }
   }, [isLoaded, isSignedIn, config, configLoading, router]);
 
-  if (!config) return null;
+  // Loading state
+  if (configLoading || !config) {
+    return (
+      <div className="min-h-screen bg-white">
+        <header className="border-b-2 border-black">
+          <div className="container mx-auto px-4 py-6">
+            <div className="flex justify-between items-center mb-4">
+              <h1 className="text-4xl font-display">THREADBOT</h1>
+              <div className="w-24 h-10 bg-gray-200 animate-pulse rounded" />
+            </div>
+            <div className="text-sm text-gray-600">
+              <span className="font-display">Settings</span>
+            </div>
+          </div>
+        </header>
+
+        <div className="container mx-auto px-4 py-12 max-w-3xl">
+          <div className="border-2 border-gray-200 p-8 mb-6 animate-pulse">
+            <div className="h-8 w-48 bg-gray-200 mb-6 rounded" />
+            <div className="space-y-4">
+              <div className="h-10 bg-gray-200 rounded" />
+              <div className="h-10 bg-gray-200 rounded" />
+              <div className="h-10 bg-gray-200 rounded" />
+            </div>
+          </div>
+
+          <div className="border-2 border-gray-200 p-8 mb-6 animate-pulse">
+            <div className="h-8 w-48 bg-gray-200 mb-6 rounded" />
+            <div className="space-y-4">
+              <div className="h-10 bg-gray-200 rounded" />
+              <div className="h-10 bg-gray-200 rounded" />
+            </div>
+          </div>
+
+          <div className="border-2 border-gray-200 p-8 animate-pulse">
+            <div className="h-8 w-48 bg-gray-200 mb-6 rounded" />
+            <div className="space-y-4">
+              <div className="h-10 bg-gray-200 rounded" />
+              <div className="h-10 bg-gray-200 rounded" />
+              <div className="h-10 bg-gray-200 rounded" />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
