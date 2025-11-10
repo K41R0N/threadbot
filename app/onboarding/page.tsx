@@ -5,6 +5,9 @@ import { useRouter } from 'next/navigation';
 import { useUser } from '@clerk/nextjs';
 import { trpc } from '@/lib/trpc';
 
+// Force dynamic rendering (requires authentication at runtime)
+export const dynamic = 'force-dynamic';
+
 export default function OnboardingPage() {
   const router = useRouter();
   const { isLoaded, isSignedIn } = useUser();

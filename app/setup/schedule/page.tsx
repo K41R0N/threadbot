@@ -6,6 +6,9 @@ import { useUser } from '@clerk/nextjs';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { trpc } from '@/lib/trpc';
+
+// Force dynamic rendering (requires authentication at runtime)
+export const dynamic = 'force-dynamic';
 import { toast } from 'sonner';
 
 const TIMEZONES = [

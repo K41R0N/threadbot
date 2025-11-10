@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
-import { Bebas_Neue } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 import { Providers } from "./providers";
 import { Toaster } from "sonner";
 
-const bebasNeue = Bebas_Neue({
-  weight: "400",
-  subsets: ["latin"],
+const bebasNeue = localFont({
+  src: "../public/fonts/BebasNeue-Regular.ttf",
   variable: "--font-bebas",
+  weight: "400",
 });
 
 export const metadata: Metadata = {
