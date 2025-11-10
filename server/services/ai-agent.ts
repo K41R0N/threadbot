@@ -127,7 +127,7 @@ Return your analysis in this exact JSON format:
   ): Promise<WeeklyTheme[]> {
     try {
       const model = useClaude
-        ? anthropic('claude-sonnet-4.5-20250929')
+        ? anthropic('claude-sonnet-4-20250514')
         : deepseek('deepseek-chat');
 
       const { object } = await generateObject({
@@ -182,7 +182,7 @@ Return 4 weekly themes that follow this narrative arc but are customized to the 
   ): Promise<DailyPrompt> {
     try {
       const model = useClaude
-        ? anthropic('claude-sonnet-4.5-20250929')
+        ? anthropic('claude-sonnet-4-20250514')
         : deepseek('deepseek-chat');
 
       const timeOfDay = postType === 'morning' ? 'morning reflection' : 'evening reflection';
@@ -208,7 +208,7 @@ Context:
 - Core Themes: ${contextAnalysis.coreThemes.join(', ')}
 
 REQUIREMENTS:
-1. Create EXACTLY 5 open-ended questions
+1. Create EXACTLY 5 open-ended questions in the "prompts" array
 2. Questions must be thought-starters, not statements
 3. Questions should align with the weekly theme
 4. Questions should be appropriate for ${timeOfDay}
@@ -220,6 +220,7 @@ DO NOT:
 - Create prompts that can be answered with yes/no
 - Repeat questions from previous days
 
+Return the questions as an array of 5 strings in the "prompts" field.
 TONE: ${contextAnalysis.brandVoice}`,
         temperature: 0.9,
         maxTokens: 1000,
