@@ -4,7 +4,7 @@ import { serverSupabase } from '@/lib/supabase-server';
 import { TelegramService } from './services/telegram';
 import { BotService } from './services/bot';
 import { agentRouter } from './routers/agent';
-import type { Database } from '@/lib/database.types';
+import type { Database } from '@/lib/database';
 
 export const appRouter = router({
   bot: router({
