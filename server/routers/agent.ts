@@ -551,15 +551,38 @@ export const agentRouter = router({
   completeOnboarding: protectedProcedure.mutation(async ({ ctx }) => {
     const supabase = getServerSupabase();
 
-    await supabase
+    // SECURITY: Only update onboarding flags - preserve tier and credits
+    // Use update with select to check if row exists
+    const { data, error } = await supabase
       .from('user_subscriptions')
-      .upsert({
-        user_id: ctx.userId,
-        tier: 'free',
-        claude_credits: 0,
+      .update({
         onboarding_completed: true,
         onboarding_skipped: false,
-      });
+      })
+      .eq('user_id', ctx.userId)
+      .select()
+      .maybeSingle();
+
+    if (error) {
+      throw new Error('Failed to update onboarding status');
+    }
+
+    // If no row exists, create it with defaults (first-time user)
+    if (!data) {
+      const { error: insertError } = await supabase
+        .from('user_subscriptions')
+        .insert({
+          user_id: ctx.userId,
+          tier: 'free',
+          claude_credits: 0,
+          onboarding_completed: true,
+          onboarding_skipped: false,
+        });
+
+      if (insertError) {
+        throw new Error('Failed to create onboarding status');
+      }
+    }
 
     return { success: true };
   }),
@@ -568,15 +591,38 @@ export const agentRouter = router({
   skipOnboarding: protectedProcedure.mutation(async ({ ctx }) => {
     const supabase = getServerSupabase();
 
-    await supabase
+    // SECURITY: Only update onboarding flags - preserve tier and credits
+    // Use update with select to check if row exists
+    const { data, error } = await supabase
       .from('user_subscriptions')
-      .upsert({
-        user_id: ctx.userId,
-        tier: 'free',
-        claude_credits: 0,
+      .update({
         onboarding_completed: false,
         onboarding_skipped: true,
-      });
+      })
+      .eq('user_id', ctx.userId)
+      .select()
+      .maybeSingle();
+
+    if (error) {
+      throw new Error('Failed to update onboarding status');
+    }
+
+    // If no row exists, create it with defaults (first-time user)
+    if (!data) {
+      const { error: insertError } = await supabase
+        .from('user_subscriptions')
+        .insert({
+          user_id: ctx.userId,
+          tier: 'free',
+          claude_credits: 0,
+          onboarding_completed: false,
+          onboarding_skipped: true,
+        });
+
+      if (insertError) {
+        throw new Error('Failed to create onboarding status');
+      }
+    }
 
     return { success: true };
   }),

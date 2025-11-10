@@ -23,7 +23,6 @@ export default function DashboardPage() {
   const router = useRouter();
   const { isSignedIn, isLoaded } = useUser();
   const [showUpgrade, setShowUpgrade] = useState(false);
-  const [showOnboarding, setShowOnboarding] = useState(false);
 
   const { data: config, isLoading: configLoading } = trpc.bot.getConfig.useQuery(undefined, {
     enabled: isSignedIn,
@@ -39,12 +38,18 @@ export default function DashboardPage() {
   // Get all user's prompt databases (grouped by month)
   const { data: allPrompts } = trpc.agent.getPrompts.useQuery({});
 
-  // Show onboarding modal for first-time users
-  useEffect(() => {
-    if (onboardingStatus && !onboardingStatus.onboarding_completed && !onboardingStatus.onboarding_skipped) {
-      setShowOnboarding(true);
-    }
-  }, [onboardingStatus]);
+  // Derive onboarding modal visibility from data (no state/effect needed)
+  const showOnboarding = Boolean(
+    onboardingStatus &&
+    !onboardingStatus.onboarding_completed &&
+    !onboardingStatus.onboarding_skipped
+  );
+
+  const skipOnboarding = trpc.agent.skipOnboarding.useMutation({
+    onError: () => {
+      toast.error('Failed to skip onboarding');
+    },
+  });
 
   const updateConfig = trpc.bot.updateConfig.useMutation({
     onSuccess: () => {
@@ -515,7 +520,10 @@ export default function DashboardPage() {
       )}
 
       {/* Onboarding Modal */}
-      <OnboardingModal isOpen={showOnboarding} onClose={() => setShowOnboarding(false)} />
+      <OnboardingModal
+        isOpen={showOnboarding}
+        onClose={() => skipOnboarding.mutate()}
+      />
     </AuthenticatedLayout>
   );
 }

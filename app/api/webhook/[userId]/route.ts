@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSupabase } from '@/lib/supabase-server';
 import { BotService } from '@/server/services/bot';
 import { SafeLogger } from '@/lib/logger';
+import type { BotConfig } from '@/lib/supabase';
 
 // Set function timeout to 10 seconds
 export const maxDuration = 10;
@@ -45,17 +46,18 @@ export async function POST(
 
     // Get bot configuration for this user
     const supabase = getServerSupabase();
-    const { data: config, error } = await supabase
+    const { data, error } = await supabase
       .from('bot_configs')
       .select('*')
       .eq('user_id', userId)
       .single();
 
-    if (error || !config) {
+    if (error || !data) {
       SafeLogger.error('Bot config not found for user', { userId, error });
       return NextResponse.json({ ok: true }); // Silently ignore to prevent Telegram retries
     }
 
+    const config = data as BotConfig;
     SafeLogger.info('Bot config found', { userId, chatId: config.telegram_chat_id });
 
     // Verify chat ID matches to prevent cross-user attacks
