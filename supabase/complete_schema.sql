@@ -7,6 +7,26 @@
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- ========================================
+-- 0. MIGRATIONS (for existing tables)
+-- ========================================
+
+-- Add claude_credits to existing user_subscriptions table
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'user_subscriptions') THEN
+    ALTER TABLE user_subscriptions ADD COLUMN IF NOT EXISTS claude_credits INTEGER NOT NULL DEFAULT 0;
+  END IF;
+END $$;
+
+-- Add prompt_source to existing bot_configs table
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'bot_configs') THEN
+    ALTER TABLE bot_configs ADD COLUMN IF NOT EXISTS prompt_source TEXT DEFAULT 'agent' CHECK (prompt_source IN ('notion', 'agent'));
+  END IF;
+END $$;
+
+-- ========================================
 -- 1. CORE BOT CONFIGURATION TABLES
 -- ========================================
 
