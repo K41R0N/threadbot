@@ -551,15 +551,30 @@ export const agentRouter = router({
   completeOnboarding: protectedProcedure.mutation(async ({ ctx }) => {
     const supabase = getServerSupabase();
 
-    await supabase
+    // SECURITY: Only update onboarding flags - preserve tier and credits
+    // Use update instead of upsert to avoid overwriting existing subscription data
+    const { error } = await supabase
       .from('user_subscriptions')
-      .upsert({
-        user_id: ctx.userId,
-        tier: 'free',
-        claude_credits: 0,
+      .update({
         onboarding_completed: true,
         onboarding_skipped: false,
-      });
+      })
+      .eq('user_id', ctx.userId);
+
+    // If row doesn't exist, create it with defaults (first-time user)
+    if (error && error.code === 'PGRST116') {
+      await supabase
+        .from('user_subscriptions')
+        .insert({
+          user_id: ctx.userId,
+          tier: 'free',
+          claude_credits: 0,
+          onboarding_completed: true,
+          onboarding_skipped: false,
+        });
+    } else if (error) {
+      throw new Error('Failed to update onboarding status');
+    }
 
     return { success: true };
   }),
@@ -568,15 +583,30 @@ export const agentRouter = router({
   skipOnboarding: protectedProcedure.mutation(async ({ ctx }) => {
     const supabase = getServerSupabase();
 
-    await supabase
+    // SECURITY: Only update onboarding flags - preserve tier and credits
+    // Use update instead of upsert to avoid overwriting existing subscription data
+    const { error } = await supabase
       .from('user_subscriptions')
-      .upsert({
-        user_id: ctx.userId,
-        tier: 'free',
-        claude_credits: 0,
+      .update({
         onboarding_completed: false,
         onboarding_skipped: true,
-      });
+      })
+      .eq('user_id', ctx.userId);
+
+    // If row doesn't exist, create it with defaults (first-time user)
+    if (error && error.code === 'PGRST116') {
+      await supabase
+        .from('user_subscriptions')
+        .insert({
+          user_id: ctx.userId,
+          tier: 'free',
+          claude_credits: 0,
+          onboarding_completed: false,
+          onboarding_skipped: true,
+        });
+    } else if (error) {
+      throw new Error('Failed to update onboarding status');
+    }
 
     return { success: true };
   }),
