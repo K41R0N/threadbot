@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import type { Database } from './database';
+import type { Database } from './database.types';
 
 /**
  * Client-side Supabase client with anonymous key

@@ -35,12 +35,12 @@ DB_URL="postgresql://postgres:${SUPABASE_SERVICE_ROLE_KEY}@db.${PROJECT_REF}.sup
 
 # Generate types using Supabase CLI
 echo "🔗 Connecting to database..."
-npx supabase@latest gen types typescript --db-url "$DB_URL" > lib/database.ts
+npx supabase@latest gen types typescript --db-url "$DB_URL" > lib/database.types.ts
 
 # Check if types were generated successfully
-if [ -s lib/database.ts ]; then
+if [ -s lib/database.types.ts ]; then
   echo "✅ Types generated successfully!"
-  echo "📝 File: lib/database.ts ($(wc -l < lib/database.ts) lines)"
+  echo "📝 File: lib/database.types.ts ($(wc -l < lib/database.types.ts) lines)"
 else
   echo "❌ Error: Type generation failed - file is empty or missing"
   echo "Check that:"

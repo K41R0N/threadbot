@@ -325,7 +325,3 @@ export type Database = {
   };
 };
 
-// Ensure this file is treated as a module (required for isolatedModules)
-// Export a marker to satisfy TypeScript's module requirements
-export const __esModule = true;
-
