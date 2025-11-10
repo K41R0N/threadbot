@@ -18,7 +18,7 @@
  */
 
 import { createClient } from '@supabase/supabase-js';
-import type { Database } from './database';
+import type { Database } from './database.types';
 
 /**
  * Server-side Supabase client with service role privileges
