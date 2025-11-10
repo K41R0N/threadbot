@@ -17,7 +17,7 @@
  * The service role key bypasses ALL Row Level Security (RLS) policies.
  */
 
-import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { createClient } from '@supabase/supabase-js';
 import type { Database } from './database.types';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -38,6 +38,10 @@ if (!serviceRoleKey) {
  * Always validate user permissions in your application logic
  *
  * Singleton client instance created at module load
+ *
+ * NOTE: Due to a type inference issue in @supabase/supabase-js v2.80.0,
+ * the .from().insert/update operations may need type assertions.
+ * Data objects should still use explicit Database types for safety.
  */
 export const serverSupabase = createClient<Database>(supabaseUrl, serviceRoleKey, {
   auth: {

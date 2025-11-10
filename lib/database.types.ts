@@ -11,7 +11,7 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[]
 
-export interface Database {
+export type Database = {
   public: {
     Tables: {
       bot_configs: {
@@ -320,4 +320,4 @@ export interface Database {
       [_ in never]: never
     };
   };
-}
+};

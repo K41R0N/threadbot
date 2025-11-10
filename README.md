@@ -62,8 +62,26 @@ Open [http://localhost:3000](http://localhost:3000)
 
 1. Push to GitHub
 2. Import project in Vercel
-3. Add environment variables
+3. Add environment variables (see below)
 4. Deploy
+
+#### Required Environment Variables
+
+```env
+# Supabase
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
+
+# Clerk
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=your_clerk_publishable_key
+CLERK_SECRET_KEY=your_clerk_secret_key
+
+# App
+NEXT_PUBLIC_APP_URL=https://your-app.vercel.app
+```
+
+> **Note**: Database types are auto-generated from your Supabase schema on every build using your existing credentials.
 
 ### Set Up Cron Jobs
 

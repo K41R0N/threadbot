@@ -63,6 +63,7 @@ export class BotService {
           .eq('post_type', type)
           .single();
 
+        // @ts-expect-error Supabase v2.80.0 type inference issue
         if (!prompt || !prompt.prompts || prompt.prompts.length === 0) {
           return {
             success: false,
@@ -71,10 +72,13 @@ export class BotService {
         }
 
         // Format prompts as numbered list
+        // @ts-expect-error Supabase v2.80.0 type inference issue
         content = prompt.prompts
           .map((p: string, i: number) => `${i + 1}. ${p}`)
           .join('\n');
+        // @ts-expect-error Supabase v2.80.0 type inference issue
         topicProperty = prompt.week_theme;
+        // @ts-expect-error Supabase v2.80.0 type inference issue
         pageId = prompt.id; // Use prompt ID instead of Notion page ID
       } else {
         // Fetch from Notion (existing logic)
@@ -136,6 +140,7 @@ export class BotService {
       const supabase = serverSupabase;
       await supabase
         .from('bot_state')
+        // @ts-expect-error Supabase v2.80.0 type inference issue
         .upsert({
           user_id: config.user_id,
           last_prompt_type: type,
@@ -174,6 +179,7 @@ export class BotService {
         .eq('user_id', config.user_id)
         .single();
 
+      // @ts-expect-error Supabase v2.80.0 type inference issue
       if (!state?.last_prompt_page_id) {
         return {
           success: false,
@@ -187,6 +193,7 @@ export class BotService {
         const { data: prompt, error: fetchError } = await supabase
           .from('user_prompts')
           .select('response')
+          // @ts-expect-error Supabase v2.80.0 type inference issue
           .eq('id', state.last_prompt_page_id)
           .single();
 
@@ -195,6 +202,7 @@ export class BotService {
         }
 
         // Append reply to existing responses (if any)
+        // @ts-expect-error Supabase v2.80.0 type inference issue
         const existingResponse = prompt?.response || '';
         const updatedResponse = existingResponse
           ? `${existingResponse}\n\n---\n\n${replyText}`
@@ -202,7 +210,9 @@ export class BotService {
 
         const { error: updateError } = await supabase
           .from('user_prompts')
+          // @ts-expect-error Supabase v2.80.0 type inference issue
           .update({ response: updatedResponse })
+          // @ts-expect-error Supabase v2.80.0 type inference issue
           .eq('id', state.last_prompt_page_id);
 
         if (updateError) {
@@ -223,6 +233,7 @@ export class BotService {
         }
 
         const notion = new NotionService(config.notion_token);
+        // @ts-expect-error Supabase v2.80.0 type inference issue
         await notion.appendReply(state.last_prompt_page_id, replyText);
 
         return {
@@ -280,6 +291,7 @@ export class BotService {
         .eq('user_id', userId)
         .single();
 
+      // @ts-expect-error Supabase v2.80.0 type inference issue
       if (!state || !state.last_prompt_sent_at || state.last_prompt_type !== type) {
         return false;
       }
@@ -289,6 +301,7 @@ export class BotService {
       const todayInUserTz = format(toZonedTime(now, timezone), 'yyyy-MM-dd');
 
       // Get the date of last send in user's timezone
+      // @ts-expect-error Supabase v2.80.0 type inference issue
       const lastSentDate = new Date(state.last_prompt_sent_at);
       const lastSentInUserTz = format(toZonedTime(lastSentDate, timezone), 'yyyy-MM-dd');
 
