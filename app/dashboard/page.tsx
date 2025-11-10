@@ -1,12 +1,12 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useUser, UserButton } from '@clerk/nextjs';
+import { useUser } from '@clerk/nextjs';
 import { Button } from '@/components/ui/button';
 import { trpc } from '@/lib/trpc';
 import { toast } from 'sonner';
-import { useState } from 'react';
+import { AuthenticatedLayout } from '@/components/layout/authenticated-layout';
 
 interface AgentDatabase {
   monthKey: string;
@@ -142,30 +142,7 @@ export default function DashboardPage() {
   };
 
   return (
-    <div className="min-h-screen bg-white">
-      {/* Header with Navigation */}
-      <header className="border-b-2 border-black">
-        <div className="container mx-auto px-4 py-6">
-          <div className="flex justify-between items-center mb-4">
-            <h1 className="text-4xl font-display">THREADBOT</h1>
-            <div className="flex items-center gap-3">
-              <Button
-                variant="outline"
-                onClick={() => router.push('/settings')}
-              >
-                SETTINGS
-              </Button>
-              <UserButton />
-            </div>
-          </div>
-
-          {/* Breadcrumb */}
-          <div className="text-sm text-gray-600">
-            <span className="font-display">Dashboard</span>
-          </div>
-        </div>
-      </header>
-
+    <AuthenticatedLayout currentPage="dashboard">
       <div className="container mx-auto px-4 py-12 max-w-6xl">
         {/* Bot Status Card */}
         <div className="border-2 border-black p-8 mb-8">
@@ -491,6 +468,7 @@ export default function DashboardPage() {
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </AuthenticatedLayout>
   );
 }

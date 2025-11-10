@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { trpc } from '@/lib/trpc';
 import { toast } from 'sonner';
+import { AuthenticatedLayout } from '@/components/layout/authenticated-layout';
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -161,33 +162,7 @@ export default function SettingsPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-white">
-      <div className="border-b-2 border-black">
-        <div className="container mx-auto px-4 py-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-4">
-              <Button variant="outline" onClick={() => router.push('/dashboard')}>
-                ← BACK
-              </Button>
-              <h1 className="text-4xl font-display">SETTINGS</h1>
-            </div>
-            <Button
-              variant="outline"
-              onClick={() => router.push('/dashboard')}
-            >
-              DASHBOARD
-            </Button>
-          </div>
-
-          {/* Breadcrumb */}
-          <div className="text-sm text-gray-600">
-            <span className="cursor-pointer hover:text-black" onClick={() => router.push('/dashboard')}>Dashboard</span>
-            <span className="mx-2">→</span>
-            <span>Settings</span>
-          </div>
-        </div>
-      </div>
-
+    <AuthenticatedLayout currentPage="settings" showSettingsButton={false}>
       <div className="container mx-auto px-4 py-12 max-w-3xl">
         <form onSubmit={handleSubmit} className="space-y-8">
           {/* Prompt Source Selection */}
@@ -384,6 +359,6 @@ export default function SettingsPage() {
           </div>
         </form>
       </div>
-    </div>
+    </AuthenticatedLayout>
   );
 }
