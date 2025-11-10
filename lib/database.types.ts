@@ -325,3 +325,6 @@ export type Database = {
   };
 };
 
+// TypeScript requires at least one value export for isolatedModules
+export {};
+
