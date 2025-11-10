@@ -30,18 +30,26 @@ if (!serviceRoleKey) {
   throw new Error('Missing SUPABASE_SERVICE_ROLE_KEY environment variable');
 }
 
+// Singleton instance for better performance
+let serverSupabaseInstance: ReturnType<typeof createClient> | null = null;
+
 /**
  * Get server-side Supabase client with service role privileges
  *
  * SECURITY: This client bypasses all RLS policies - use with caution
  * Always validate user permissions in your application logic
+ *
+ * Uses singleton pattern to avoid creating multiple client instances
  */
 export function getServerSupabase() {
-  // Safe to use non-null assertion - we throw above if serviceRoleKey is undefined
-  return createClient(supabaseUrl, serviceRoleKey!, {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-    },
-  });
+  if (!serverSupabaseInstance) {
+    // Safe to use non-null assertion - we throw above if serviceRoleKey is undefined
+    serverSupabaseInstance = createClient(supabaseUrl, serviceRoleKey!, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    });
+  }
+  return serverSupabaseInstance;
 }

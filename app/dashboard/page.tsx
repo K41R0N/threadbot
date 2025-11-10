@@ -330,7 +330,8 @@ export default function DashboardPage() {
               {agentDatabases.map((db: AgentDatabase) => {
                 const totalPrompts = db.morningCount + db.eveningCount;
                 const expectedPrompts = 60; // 30 mornings + 30 evenings
-                const completionPercent = Math.round((totalPrompts / expectedPrompts) * 100);
+                const rawPercent = Math.round((totalPrompts / expectedPrompts) * 100);
+                const completionPercent = Math.min(100, Math.max(0, rawPercent)); // Clamp to 0-100
 
                 return (
                   <div

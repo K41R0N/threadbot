@@ -44,7 +44,7 @@ export class TelegramService {
   async sendMessage(chatId: string, text: string): Promise<void> {
     try {
       await this.bot.sendMessage(chatId, text, {
-        parse_mode: 'Markdown',
+        parse_mode: 'MarkdownV2',
       });
     } catch (error: any) {
       SafeLogger.error('Telegram send error:', error);
