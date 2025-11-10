@@ -5,7 +5,7 @@
 
 import { z } from 'zod';
 import { protectedProcedure, router } from '../trpc';
-import { getServerSupabase } from '@/lib/supabase-server';
+import { serverSupabase } from '@/lib/supabase-server';
 import { AIAgentService } from '../services/ai-agent';
 import { SafeLogger } from '@/lib/logger';
 
@@ -37,7 +37,7 @@ async function checkCredits(userId: string, useClaude: boolean) {
   }
 
   // Using Claude: check credits
-  const supabase = getServerSupabase();
+  const supabase = serverSupabase;
   const { data: subscription } = await supabase
     .from('user_subscriptions')
     .select('claude_credits')
@@ -60,7 +60,7 @@ async function checkCredits(userId: string, useClaude: boolean) {
 export const agentRouter = router({
   // Get user's subscription and credits
   getSubscription: protectedProcedure.query(async ({ ctx }) => {
-    const supabase = getServerSupabase();
+    const supabase = serverSupabase;
 
     const { data, error } = await supabase
       .from('user_subscriptions')
@@ -79,7 +79,7 @@ export const agentRouter = router({
 
   // Get user's generation context
   getContext: protectedProcedure.query(async ({ ctx }) => {
-    const supabase = getServerSupabase();
+    const supabase = serverSupabase;
 
     const { data } = await supabase
       .from('user_generation_context')
@@ -102,7 +102,7 @@ export const agentRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const supabase = getServerSupabase();
+      const supabase = serverSupabase;
 
       const { data, error } = await supabase
         .from('user_generation_context')
@@ -142,7 +142,7 @@ export const agentRouter = router({
         );
 
         // Save analysis to context
-        const supabase = getServerSupabase();
+        const supabase = serverSupabase;
         await supabase.from('user_generation_context').upsert({
           user_id: ctx.userId,
           brand_urls: input.brandUrls,
@@ -176,7 +176,7 @@ export const agentRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const supabase = getServerSupabase();
+      const supabase = serverSupabase;
 
       // SECURITY: Check if user has credits for Claude generation
       const creditCheck = await checkCredits(ctx.userId, input.useClaude);
@@ -252,7 +252,7 @@ export const agentRouter = router({
       })
     )
     .query(async ({ ctx, input }) => {
-      const supabase = getServerSupabase();
+      const supabase = serverSupabase;
 
       const { data } = await supabase
         .from('user_weekly_themes')
@@ -272,7 +272,7 @@ export const agentRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const supabase = getServerSupabase();
+      const supabase = serverSupabase;
 
       await supabase
         .from('user_weekly_themes')
@@ -293,7 +293,7 @@ export const agentRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const supabase = getServerSupabase();
+      const supabase = serverSupabase;
 
       // SECURITY: Check if user has credits for Claude generation
       const creditCheck = await checkCredits(ctx.userId, input.useClaude);
@@ -429,7 +429,7 @@ export const agentRouter = router({
       })
     )
     .query(async ({ ctx, input }) => {
-      const supabase = getServerSupabase();
+      const supabase = serverSupabase;
 
       let query = supabase
         .from('user_prompts')
@@ -460,7 +460,7 @@ export const agentRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const supabase = getServerSupabase();
+      const supabase = serverSupabase;
 
       // Type-safe update data for user_prompts table
       type PromptUpdate = {
@@ -491,7 +491,7 @@ export const agentRouter = router({
   deletePrompt: protectedProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      const supabase = getServerSupabase();
+      const supabase = serverSupabase;
 
       await supabase
         .from('user_prompts')
@@ -506,7 +506,7 @@ export const agentRouter = router({
   getJobStatus: protectedProcedure
     .input(z.object({ jobId: z.string() }))
     .query(async ({ ctx, input }) => {
-      const supabase = getServerSupabase();
+      const supabase = serverSupabase;
 
       const { data } = await supabase
         .from('agent_generation_jobs')
@@ -520,7 +520,7 @@ export const agentRouter = router({
 
   // Get onboarding status
   getOnboardingStatus: protectedProcedure.query(async ({ ctx }) => {
-    const supabase = getServerSupabase();
+    const supabase = serverSupabase;
 
     // Ensure subscription row exists
     const { data } = await supabase
@@ -549,7 +549,7 @@ export const agentRouter = router({
 
   // Mark onboarding as completed
   completeOnboarding: protectedProcedure.mutation(async ({ ctx }) => {
-    const supabase = getServerSupabase();
+    const supabase = serverSupabase;
 
     // SECURITY: Only update onboarding flags - preserve tier and credits
     // Use update with select to check if row exists
@@ -589,7 +589,7 @@ export const agentRouter = router({
 
   // Skip onboarding
   skipOnboarding: protectedProcedure.mutation(async ({ ctx }) => {
-    const supabase = getServerSupabase();
+    const supabase = serverSupabase;
 
     // SECURITY: Only update onboarding flags - preserve tier and credits
     // Use update with select to check if row exists

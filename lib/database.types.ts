@@ -3,7 +3,15 @@
  * These types should match the actual database schema
  */
 
-export type Database = {
+export type Json =
+  | string
+  | number
+  | boolean
+  | null
+  | { [key: string]: Json | undefined }
+  | Json[]
+
+export interface Database {
   public: {
     Tables: {
       bot_configs: {
@@ -294,6 +302,9 @@ export type Database = {
         };
       };
     };
+    Views: {
+      [_ in never]: never
+    };
     Functions: {
       decrement_claude_credits: {
         Args: {
@@ -302,5 +313,11 @@ export type Database = {
         Returns: void;
       };
     };
+    Enums: {
+      [_ in never]: never
+    };
+    CompositeTypes: {
+      [_ in never]: never
+    };
   };
-};
+}
