@@ -462,7 +462,13 @@ export const agentRouter = router({
     .mutation(async ({ ctx, input }) => {
       const supabase = getServerSupabase();
 
-      const updateData: any = {};
+      // Type-safe update data for user_prompts table
+      type PromptUpdate = {
+        prompts?: string[];
+        status?: 'draft' | 'scheduled' | 'sent';
+      };
+
+      const updateData: PromptUpdate = {};
       if (input.prompts) updateData.prompts = input.prompts;
       if (input.status) updateData.status = input.status;
 

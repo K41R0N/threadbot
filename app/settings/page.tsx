@@ -122,7 +122,19 @@ export default function SettingsPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const updateData: any = {
+    // Type-safe update data matching server schema
+    type ConfigUpdate = {
+      timezone: string;
+      morningTime: string;
+      eveningTime: string;
+      promptSource: 'notion' | 'agent';
+      notionToken?: string | null;
+      notionDatabaseId?: string | null;
+      telegramChatId?: string;
+      telegramBotToken?: string | null;
+    };
+
+    const updateData: ConfigUpdate = {
       timezone,
       morningTime,
       eveningTime,

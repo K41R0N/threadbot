@@ -11,7 +11,7 @@ export class BotService {
    * Supports both Notion and Agent sources
    */
   static async sendScheduledPrompt(
-    config: any, // Extended BotConfig with prompt_source
+    config: BotConfig,
     type: 'morning' | 'evening'
   ): Promise<{ success: boolean; message?: string; pageId?: string }> {
     try {
@@ -78,6 +78,13 @@ export class BotService {
         pageId = prompt.id; // Use prompt ID instead of Notion page ID
       } else {
         // Fetch from Notion (existing logic)
+        if (!config.notion_token || !config.notion_database_id) {
+          return {
+            success: false,
+            message: 'Notion token or database ID not configured',
+          };
+        }
+
         const notion = new NotionService(config.notion_token);
 
         const page = await notion.queryDatabase(
@@ -155,7 +162,7 @@ export class BotService {
    * Supports both Notion and Agent sources
    */
   static async handleReply(
-    config: any, // Extended BotConfig with prompt_source
+    config: BotConfig,
     replyText: string
   ): Promise<{ success: boolean; message?: string }> {
     try {
@@ -208,6 +215,13 @@ export class BotService {
         };
       } else {
         // Append reply to Notion page
+        if (!config.notion_token) {
+          return {
+            success: false,
+            message: 'Notion token not configured',
+          };
+        }
+
         const notion = new NotionService(config.notion_token);
         await notion.appendReply(state.last_prompt_page_id, replyText);
 

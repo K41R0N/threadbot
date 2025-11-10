@@ -37,7 +37,8 @@ if (!serviceRoleKey) {
  * Always validate user permissions in your application logic
  */
 export function getServerSupabase() {
-  return createClient(supabaseUrl, serviceRoleKey, {
+  // Safe to use non-null assertion - we throw above if serviceRoleKey is undefined
+  return createClient(supabaseUrl, serviceRoleKey!, {
     auth: {
       autoRefreshToken: false,
       persistSession: false,

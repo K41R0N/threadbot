@@ -105,7 +105,20 @@ export const appRouter = router({
       .mutation(async ({ ctx, input }) => {
         const supabase = getServerSupabase();
 
-        const updateData: any = {};
+        // Type-safe update data for bot_configs table
+        type BotConfigUpdate = {
+          notion_token?: string | null;
+          notion_database_id?: string | null;
+          telegram_bot_token?: string | null;
+          telegram_chat_id?: string | null;
+          timezone?: string;
+          morning_time?: string;
+          evening_time?: string;
+          is_active?: boolean;
+          prompt_source?: 'notion' | 'agent';
+        };
+
+        const updateData: BotConfigUpdate = {};
         // Support clearing tokens by distinguishing undefined (not provided) from null (clear)
         if (input.notionToken !== undefined) updateData.notion_token = input.notionToken;
         if (input.notionDatabaseId !== undefined) updateData.notion_database_id = input.notionDatabaseId;

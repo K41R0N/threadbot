@@ -59,7 +59,12 @@ export class TelegramService {
    */
   async setWebhook(webhookUrl: string, secretToken?: string): Promise<boolean> {
     try {
-      const options: any = {};
+      // Type-safe webhook options matching Telegram Bot API
+      type WebhookOptions = {
+        secret_token?: string;
+      };
+
+      const options: WebhookOptions = {};
       if (secretToken) {
         options.secret_token = secretToken;
       }
