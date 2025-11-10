@@ -158,6 +158,36 @@ export default function DashboardPage() {
               <div className="mt-2 text-sm text-gray-600">
                 Prompt Source: <span className="font-display uppercase">{config.prompt_source === 'agent' ? '🤖 AI Agent' : '📝 Notion'}</span>
               </div>
+
+              {/* Webhook Health Status */}
+              {config.last_webhook_setup_at && (
+                <div className="mt-3 border-t border-gray-200 pt-3">
+                  <div className="text-xs text-gray-500 mb-1">
+                    Webhook Status
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {config.last_webhook_status === 'success' ? (
+                      <>
+                        <div className="w-2 h-2 bg-green-500 rounded-full" />
+                        <span className="text-sm text-green-700 font-display">CONNECTED</span>
+                      </>
+                    ) : (
+                      <>
+                        <div className="w-2 h-2 bg-red-500 rounded-full" />
+                        <span className="text-sm text-red-700 font-display">FAILED</span>
+                      </>
+                    )}
+                    <span className="text-xs text-gray-500">
+                      • Last checked: {new Date(config.last_webhook_setup_at).toLocaleString()}
+                    </span>
+                  </div>
+                  {config.last_webhook_error && (
+                    <div className="mt-2 text-xs text-red-600 bg-red-50 p-2 rounded border border-red-200">
+                      Error: {config.last_webhook_error}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
             <div className="flex gap-3">
               <Button

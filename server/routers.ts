@@ -14,7 +14,7 @@ export const appRouter = router({
       // SECURITY: Only select non-sensitive fields. Never send tokens to client!
       const { data, error } = await supabase
         .from('bot_configs')
-        .select('id, user_id, notion_database_id, telegram_chat_id, timezone, morning_time, evening_time, is_active, prompt_source, created_at, updated_at')
+        .select('id, user_id, notion_database_id, telegram_chat_id, timezone, morning_time, evening_time, is_active, prompt_source, last_webhook_setup_at, last_webhook_status, last_webhook_error, created_at, updated_at')
         .eq('user_id', ctx.userId)
         .single();
 
@@ -71,7 +71,7 @@ export const appRouter = router({
             is_active: input.isActive,
             prompt_source: 'notion', // Default to notion for new configs
           })
-          .select('id, user_id, notion_database_id, telegram_chat_id, timezone, morning_time, evening_time, is_active, prompt_source, created_at, updated_at')
+          .select('id, user_id, notion_database_id, telegram_chat_id, timezone, morning_time, evening_time, is_active, prompt_source, last_webhook_setup_at, last_webhook_status, last_webhook_error, created_at, updated_at')
           .single();
 
         if (error) {
@@ -134,7 +134,7 @@ export const appRouter = router({
           .from('bot_configs')
           .update(updateData)
           .eq('user_id', ctx.userId)
-          .select('id, user_id, notion_database_id, telegram_chat_id, timezone, morning_time, evening_time, is_active, prompt_source, created_at, updated_at')
+          .select('id, user_id, notion_database_id, telegram_chat_id, timezone, morning_time, evening_time, is_active, prompt_source, last_webhook_setup_at, last_webhook_status, last_webhook_error, created_at, updated_at')
           .single();
 
         if (error) {
@@ -170,11 +170,31 @@ export const appRouter = router({
         const telegram = new TelegramService(config.telegram_bot_token);
         const success = await telegram.setWebhook(webhookUrl, secretToken);
 
+        // Persist webhook health status
+        await supabase
+          .from('bot_configs')
+          .update({
+            last_webhook_setup_at: new Date().toISOString(),
+            last_webhook_status: success ? 'success' : 'failed',
+            last_webhook_error: success ? null : 'Webhook setup returned false',
+          })
+          .eq('user_id', ctx.userId);
+
         return {
           success,
           message: success ? 'Webhook configured successfully' : 'Failed to configure webhook',
         };
       } catch (error: any) {
+        // Persist webhook error
+        await supabase
+          .from('bot_configs')
+          .update({
+            last_webhook_setup_at: new Date().toISOString(),
+            last_webhook_status: 'failed',
+            last_webhook_error: error.message,
+          })
+          .eq('user_id', ctx.userId);
+
         return {
           success: false,
           message: error.message,

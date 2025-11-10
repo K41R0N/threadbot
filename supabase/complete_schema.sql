@@ -26,6 +26,16 @@ BEGIN
   END IF;
 END $$;
 
+-- Add webhook health tracking to existing bot_configs table
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'bot_configs') THEN
+    ALTER TABLE bot_configs ADD COLUMN IF NOT EXISTS last_webhook_setup_at TIMESTAMPTZ;
+    ALTER TABLE bot_configs ADD COLUMN IF NOT EXISTS last_webhook_status TEXT CHECK (last_webhook_status IN ('success', 'failed'));
+    ALTER TABLE bot_configs ADD COLUMN IF NOT EXISTS last_webhook_error TEXT;
+  END IF;
+END $$;
+
 -- ========================================
 -- 1. CORE BOT CONFIGURATION TABLES
 -- ========================================
@@ -42,6 +52,9 @@ CREATE TABLE IF NOT EXISTS bot_configs (
   evening_time TEXT DEFAULT '20:00',
   is_active BOOLEAN DEFAULT false,
   prompt_source TEXT DEFAULT 'agent' CHECK (prompt_source IN ('notion', 'agent')),
+  last_webhook_setup_at TIMESTAMPTZ,
+  last_webhook_status TEXT CHECK (last_webhook_status IN ('success', 'failed')),
+  last_webhook_error TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );

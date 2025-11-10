@@ -27,6 +27,9 @@ export type BotConfig = {
   evening_time: string;
   is_active: boolean;
   prompt_source: 'notion' | 'agent';
+  last_webhook_setup_at: string | null;
+  last_webhook_status: 'success' | 'failed' | null;
+  last_webhook_error: string | null;
   created_at: string;
   updated_at: string;
 };
