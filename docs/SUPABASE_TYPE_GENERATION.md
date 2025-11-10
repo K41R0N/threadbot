@@ -9,29 +9,15 @@ This project automatically generates TypeScript types from your Supabase databas
 3. Types are generated and saved to `lib/database.types.ts`
 4. The build proceeds with up-to-date types
 
-## Vercel Setup (Required)
+## Vercel Setup
 
-To enable automatic type generation on Vercel, you need to add **one** environment variable:
+Type generation uses your **existing environment variables** - no additional setup required!
 
-### Option 1: Using Supabase Access Token (Recommended)
+The script automatically uses:
+- ✅ `NEXT_PUBLIC_SUPABASE_URL` (already set)
+- ✅ `SUPABASE_SERVICE_ROLE_KEY` (already set)
 
-1. Go to [Supabase Access Tokens](https://app.supabase.com/account/tokens)
-2. Click "Generate New Token"
-3. Give it a name (e.g., "Vercel Type Generation")
-4. Copy the token
-5. In Vercel:
-   - Go to your project settings
-   - Navigate to Environment Variables
-   - Add: `SUPABASE_ACCESS_TOKEN` = `<your-token>`
-   - Apply to: Production, Preview, and Development
-
-### Option 2: Using Database Connection (Alternative)
-
-If you can't use an access token, the script will attempt to connect directly using your existing environment variables:
-- `NEXT_PUBLIC_SUPABASE_URL` (already set)
-- `SUPABASE_SERVICE_ROLE_KEY` (already set)
-
-This may not work in all cases due to network restrictions.
+The service role key provides database access for type generation.
 
 ## Local Development
 
@@ -64,8 +50,8 @@ pnpm build
 - Check that `NEXT_PUBLIC_SUPABASE_URL` is in the format: `https://xxxxx.supabase.co`
 
 ### Error: "Type generation failed"
-- Ensure `SUPABASE_ACCESS_TOKEN` is set in Vercel environment variables
-- Verify the token has read permissions for your project
+- Verify `SUPABASE_SERVICE_ROLE_KEY` is set correctly in Vercel
+- Check that the service role key has not expired
 - Check Vercel build logs for detailed error messages
 
 ### Types are outdated
