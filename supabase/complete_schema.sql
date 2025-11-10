@@ -36,6 +36,15 @@ BEGIN
   END IF;
 END $$;
 
+-- Add onboarding completion tracking to existing user_subscriptions table
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'user_subscriptions') THEN
+    ALTER TABLE user_subscriptions ADD COLUMN IF NOT EXISTS onboarding_completed BOOLEAN NOT NULL DEFAULT false;
+    ALTER TABLE user_subscriptions ADD COLUMN IF NOT EXISTS onboarding_skipped BOOLEAN NOT NULL DEFAULT false;
+  END IF;
+END $$;
+
 -- ========================================
 -- 1. CORE BOT CONFIGURATION TABLES
 -- ========================================
@@ -147,6 +156,8 @@ CREATE TABLE IF NOT EXISTS user_subscriptions (
   user_id TEXT NOT NULL UNIQUE,
   tier TEXT NOT NULL DEFAULT 'free' CHECK (tier IN ('free', 'pro', 'enterprise')),
   claude_credits INTEGER NOT NULL DEFAULT 0,
+  onboarding_completed BOOLEAN NOT NULL DEFAULT false,
+  onboarding_skipped BOOLEAN NOT NULL DEFAULT false,
   stripe_customer_id TEXT,
   stripe_subscription_id TEXT,
   current_period_end TIMESTAMPTZ,

@@ -44,6 +44,9 @@ export default function SettingsPage() {
 
   const updateConfig = trpc.bot.updateConfig.useMutation({
     onSuccess: () => {
+      // Reset clear flags only after successful save
+      setShouldClearNotionToken(false);
+      setShouldClearTelegramToken(false);
       toast.success('Settings updated successfully!');
       router.push('/dashboard');
     },
@@ -123,6 +126,23 @@ export default function SettingsPage() {
     toast.info('Telegram bot token will be cleared when you save');
   };
 
+  // Reset clear flags when user starts typing again
+  const handleNotionTokenChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setNotionToken(e.target.value);
+    if (e.target.value.trim() && shouldClearNotionToken) {
+      setShouldClearNotionToken(false);
+      toast.info('Clear cancelled - new token will be saved');
+    }
+  };
+
+  const handleTelegramTokenChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setTelegramBotToken(e.target.value);
+    if (e.target.value.trim() && shouldClearTelegramToken) {
+      setShouldClearTelegramToken(false);
+      toast.info('Clear cancelled - new token will be saved');
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -150,7 +170,7 @@ export default function SettingsPage() {
       // Handle Notion token: check explicit clear flag
       if (shouldClearNotionToken) {
         updateData.notionToken = null; // Clear token
-        setShouldClearNotionToken(false); // Reset flag after use
+        // Flag will be reset in onSuccess callback
       } else if (notionToken.trim()) {
         updateData.notionToken = notionToken; // Update token
       }
@@ -170,7 +190,7 @@ export default function SettingsPage() {
     // Handle telegram bot token: check explicit clear flag
     if (shouldClearTelegramToken) {
       updateData.telegramBotToken = null; // Clear token
-      setShouldClearTelegramToken(false); // Reset flag after use
+      // Flag will be reset in onSuccess callback
     } else if (telegramBotToken.trim()) {
       updateData.telegramBotToken = telegramBotToken; // Update token
     }
@@ -269,7 +289,7 @@ export default function SettingsPage() {
                     type={showNotionToken ? 'text' : 'password'}
                     placeholder="secret_..."
                     value={notionToken}
-                    onChange={(e) => setNotionToken(e.target.value)}
+                    onChange={handleNotionTokenChange}
                   />
                   <Button
                     type="button"
@@ -318,7 +338,7 @@ export default function SettingsPage() {
                     type={showTelegramToken ? 'text' : 'password'}
                     placeholder="1234567890:ABC..."
                     value={telegramBotToken}
-                    onChange={(e) => setTelegramBotToken(e.target.value)}
+                    onChange={handleTelegramTokenChange}
                   />
                   <Button
                     type="button"
