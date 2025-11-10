@@ -53,6 +53,7 @@ END $$;
 CREATE TABLE IF NOT EXISTS bot_configs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id TEXT NOT NULL UNIQUE,
+  notion_token TEXT,
   notion_database_id TEXT,
   telegram_bot_token TEXT,
   telegram_chat_id TEXT,
