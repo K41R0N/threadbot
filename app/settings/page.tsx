@@ -28,6 +28,8 @@ export default function SettingsPage() {
 
   const [showNotionToken, setShowNotionToken] = useState(false);
   const [showTelegramToken, setShowTelegramToken] = useState(false);
+  const [shouldClearNotionToken, setShouldClearNotionToken] = useState(false);
+  const [shouldClearTelegramToken, setShouldClearTelegramToken] = useState(false);
 
   useEffect(() => {
     if (config) {
@@ -110,11 +112,13 @@ export default function SettingsPage() {
   }
 
   const handleClearNotionToken = () => {
+    setShouldClearNotionToken(true);
     setNotionToken('');
     toast.info('Notion token will be cleared when you save');
   };
 
   const handleClearTelegramToken = () => {
+    setShouldClearTelegramToken(true);
     setTelegramBotToken('');
     toast.info('Telegram bot token will be cleared when you save');
   };
@@ -143,13 +147,15 @@ export default function SettingsPage() {
 
     // Only update Notion settings if using Notion source
     if (promptSource === 'notion') {
-      // Send null to clear, non-empty string to update, undefined to keep
-      if (notionToken === '') {
+      // Handle Notion token: check explicit clear flag
+      if (shouldClearNotionToken) {
         updateData.notionToken = null; // Clear token
+        setShouldClearNotionToken(false); // Reset flag after use
       } else if (notionToken.trim()) {
         updateData.notionToken = notionToken; // Update token
       }
 
+      // Handle database ID
       if (databaseId !== config.notion_database_id) {
         if (databaseId === '') {
           updateData.notionDatabaseId = null; // Clear database ID
@@ -161,15 +167,15 @@ export default function SettingsPage() {
 
     if (telegramChatId !== config.telegram_chat_id) updateData.telegramChatId = telegramChatId;
 
-    // Handle telegram bot token clearing or updating
-    const shouldUpdateWebhook = telegramBotToken.trim() !== '';
-    const shouldClearToken = notionToken === '' || telegramBotToken === '';
-
-    if (telegramBotToken === '') {
+    // Handle telegram bot token: check explicit clear flag
+    if (shouldClearTelegramToken) {
       updateData.telegramBotToken = null; // Clear token
-    } else if (shouldUpdateWebhook) {
+      setShouldClearTelegramToken(false); // Reset flag after use
+    } else if (telegramBotToken.trim()) {
       updateData.telegramBotToken = telegramBotToken; // Update token
     }
+
+    const shouldUpdateWebhook = telegramBotToken.trim() !== '' && !shouldClearTelegramToken;
 
     try {
       await updateConfig.mutateAsync(updateData);
