@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { trpc } from '@/lib/trpc';
 import { toast } from 'sonner';
 import { AuthenticatedLayout } from '@/components/layout/authenticated-layout';
-import { OnboardingModal } from '@/components/onboarding-modal';
+import { UnifiedOnboardingModal } from '@/components/UnifiedOnboardingModal';
 import type { UserPrompt } from '@/lib/supabase-agent';
 import type { BotConfig } from '@/lib/supabase';
 
@@ -526,7 +526,7 @@ export default function DashboardPage() {
       )}
 
       {/* Onboarding Modal */}
-      <OnboardingModal
+      <UnifiedOnboardingModal
         isOpen={showOnboarding}
         onClose={() => skipOnboarding.mutate()}
       />
