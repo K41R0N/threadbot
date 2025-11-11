@@ -508,8 +508,9 @@ export const appRouter = router({
         const telegram = new TelegramService(botConfig.telegram_bot_token);
         const escapedTopic = TelegramService.escapeMarkdown(promptTopic);
         const escapedContent = TelegramService.escapeMarkdown(promptContent);
+        const escapedDate = TelegramService.escapeMarkdown(promptDate);
 
-        const message = `🧪 *TEST PROMPT*\n\n📅 ${promptDate}\n🎯 ${escapedTopic}\n\n${escapedContent}\n\n✅ Your Telegram bot is working correctly\\!`;
+        const message = `🧪 *TEST PROMPT*\n\n📅 ${escapedDate}\n🎯 ${escapedTopic}\n\n${escapedContent}\n\n✅ Your Telegram bot is working correctly\\!`;
 
         await telegram.sendMessage(botConfig.telegram_chat_id, message);
 
