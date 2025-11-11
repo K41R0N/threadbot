@@ -37,6 +37,7 @@ export default function CreateDatabasePage() {
   const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
   const [generationProgress, setGenerationProgress] = useState('Initializing...');
   const [showCreditWarning, setShowCreditWarning] = useState(false);
+  const [cooldownError, setCooldownError] = useState<{ canBypass: boolean; daysRemaining: number; error: string } | null>(null);
 
   const { data: subscription } = trpc.agent.getSubscription.useQuery();
 
@@ -57,12 +58,26 @@ export default function CreateDatabasePage() {
 
   const generateThemes = trpc.agent.generateThemes.useMutation({
     onSuccess: (data) => {
-      const response = data as GenerationMutationResponse;
-      if (!response.success && response.needsCredits) {
-        // No credits remaining
-        toast.error(response.error || 'No credits remaining');
-        setStep('model');
-        setShowCreditWarning(true);
+      const response = data as GenerationMutationResponse & { canBypass?: boolean; daysRemaining?: number };
+      if (!response.success) {
+        if (response.needsCredits) {
+          // No credits remaining
+          toast.error(response.error || 'No credits remaining');
+          setStep('model');
+          setShowCreditWarning(true);
+        } else if (response.canBypass && response.daysRemaining !== undefined) {
+          // Weekly cooldown active, but user can bypass
+          setCooldownError({
+            canBypass: response.canBypass,
+            daysRemaining: response.daysRemaining,
+            error: response.error || 'Weekly limit reached',
+          });
+          setStep('model');
+          toast.error(response.error);
+        } else {
+          toast.error(response.error || 'Generation failed');
+          setStep('model');
+        }
       }
     },
   });
@@ -118,7 +133,7 @@ export default function CreateDatabasePage() {
     });
   };
 
-  const handleGenerate = async () => {
+  const handleGenerate = async (bypassWeeklyLimit: boolean = false) => {
     if (!startDate) {
       toast.error('Please select a start date');
       return;
@@ -129,6 +144,15 @@ export default function CreateDatabasePage() {
       setShowCreditWarning(true);
       return;
     }
+
+    // Warn if trying to bypass without credits
+    if (bypassWeeklyLimit && (subscription?.claude_credits || 0) === 0) {
+      setShowCreditWarning(true);
+      return;
+    }
+
+    // Clear cooldown error when user proceeds (either free generation or bypass)
+    setCooldownError(null);
 
     // Lock the user in generating mode
     setStep('generating');
@@ -149,6 +173,7 @@ export default function CreateDatabasePage() {
         userPreferences: additionalContext || 'Follow the methodology provided in the context.',
         useClaude,
         monthYear: startDate.slice(0, 7), // Persist themes under the user's selected month
+        bypassWeeklyLimit, // Pass bypass flag
       });
 
       if (!themesResult.success) {
@@ -164,6 +189,7 @@ export default function CreateDatabasePage() {
         startDate,
         endDate: calculatedEndDate,
         useClaude,
+        bypassWeeklyLimit, // Pass bypass flag
       });
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : String(error) || 'Generation failed';
@@ -466,7 +492,7 @@ export default function CreateDatabasePage() {
                         <div className="text-sm text-gray-600 mb-2">Credits Required</div>
                         <Button size="sm" onClick={(e) => {
                           e.stopPropagation();
-                          toast.info('Redirect to purchase page coming soon');
+                          router.push('/dashboard');
                         }}>
                           BUY CREDITS →
                         </Button>
@@ -493,11 +519,35 @@ export default function CreateDatabasePage() {
               </div>
 
               {/* Weekly Cooldown Info */}
-              {!useClaude && (subscription?.claude_credits || 0) > 0 && (
+              {!useClaude && (subscription?.claude_credits || 0) > 0 && !cooldownError && (
                 <div className="border-2 border-blue-500 bg-blue-50 p-4 mb-6">
                   <div className="font-display text-sm mb-1">💡 TIP</div>
                   <div className="text-sm text-gray-700">
-                    DeepSeek is free once per week. If you've generated recently, spend 1 credit to bypass the cooldown.
+                    DeepSeek is free once per week. If you&apos;ve generated recently, spend 1 credit to bypass the cooldown.
+                  </div>
+                </div>
+              )}
+
+              {/* Weekly Cooldown Error with Bypass Option */}
+              {cooldownError && cooldownError.canBypass && (
+                <div className="border-2 border-yellow-500 bg-yellow-50 p-6 mb-6">
+                  <div className="font-display text-lg mb-2">⏳ WEEKLY COOLDOWN ACTIVE</div>
+                  <div className="text-sm text-gray-700 mb-4">
+                    Free DeepSeek generation available in {cooldownError.daysRemaining} day{cooldownError.daysRemaining !== 1 ? 's' : ''}.
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <Button
+                      onClick={() => handleGenerate(true)}
+                      disabled={!startDate || generateThemes.isPending || generatePrompts.isPending || (subscription?.claude_credits || 0) === 0}
+                      className="bg-black text-white hover:bg-gray-800"
+                    >
+                      {(subscription?.claude_credits || 0) > 0
+                        ? `USE 1 CREDIT TO GENERATE NOW (${subscription?.claude_credits} available)`
+                        : 'NO CREDITS AVAILABLE'}
+                    </Button>
+                    <span className="text-xs text-gray-600">
+                      or wait {cooldownError.daysRemaining} day{cooldownError.daysRemaining !== 1 ? 's' : ''} for free generation
+                    </span>
                   </div>
                 </div>
               )}
@@ -511,7 +561,7 @@ export default function CreateDatabasePage() {
                   ← BACK
                 </Button>
                 <Button
-                  onClick={handleGenerate}
+                  onClick={() => handleGenerate()}
                   disabled={!startDate || generateThemes.isPending || generatePrompts.isPending}
                   className="flex-1"
                 >

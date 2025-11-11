@@ -233,18 +233,25 @@ export const agentRouter = router({
         userPreferences: z.string(),
         useClaude: z.boolean().default(false),
         monthYear: z.string(), // Format: "2025-11"
+        bypassWeeklyLimit: z.boolean().default(false), // If true, spend 1 credit to bypass DeepSeek cooldown
       })
     )
     .mutation(async ({ ctx, input }) => {
       const supabase = serverSupabase;
 
-      // SECURITY: Check if user has credits for Claude generation
-      const creditCheck = await checkCredits(ctx.userId, input.useClaude);
+      // SECURITY: Check if user can generate (credits + weekly limits)
+      const creditCheck = await checkCredits(
+        ctx.userId,
+        input.useClaude,
+        input.bypassWeeklyLimit
+      );
       if (!creditCheck.allowed) {
         return {
           success: false,
           error: creditCheck.error,
           needsCredits: creditCheck.needsCredits,
+          canBypass: creditCheck.canBypass,
+          daysRemaining: creditCheck.daysRemaining,
         };
       }
 
@@ -425,7 +432,63 @@ export const agentRouter = router({
           // @ts-expect-error Supabase v2.80.0 type inference issue
           .eq('id', job.id);
 
-        // Generate all prompts
+        // SECURITY: Deduct credit BEFORE generating prompts to prevent race conditions
+        // This ensures we never give away free prompts if deduction fails
+        if (!isAdmin(ctx.userId)) {
+          // Case 1: Using Claude Sonnet 4.5 → Always deduct 1 credit
+          // Case 2: Using DeepSeek with bypass → Deduct 1 credit
+          // Case 3: Using DeepSeek without bypass → Update timestamp only, no credit deduction
+          const shouldDeductCredit = input.useClaude || input.bypassWeeklyLimit;
+
+          if (shouldDeductCredit) {
+            const { error: creditError } = await supabase
+              // @ts-expect-error Supabase v2.80.0 type inference issue
+              .rpc('decrement_claude_credits', { user_id_param: ctx.userId });
+
+            if (creditError) {
+              SafeLogger.error('Credit deduction failed BEFORE generation:', creditError);
+              // Mark job as failed since we couldn't charge
+              await supabase
+                .from('agent_generation_jobs')
+                // @ts-expect-error Supabase v2.80.0 type inference issue
+                .update({
+                  status: 'failed',
+                  error_message: 'Failed to deduct credit: ' + creditError.message,
+                })
+                // @ts-expect-error Supabase v2.80.0 type inference issue
+                .eq('id', job.id);
+
+              throw new Error('Failed to deduct credit: ' + creditError.message);
+            }
+
+            SafeLogger.info('Generation credit deducted (before generation)', {
+              userId: ctx.userId,
+              useClaude: input.useClaude,
+              bypassedLimit: input.bypassWeeklyLimit,
+            });
+          }
+
+          // Update last free generation timestamp for DeepSeek (including bypassed)
+          if (!input.useClaude) {
+            const { error: timestampError } = await supabase
+              .from('user_subscriptions')
+              // @ts-expect-error Supabase v2.80.0 type inference issue
+              .update({ last_free_generation_at: new Date().toISOString() })
+              .eq('user_id', ctx.userId);
+
+            if (timestampError) {
+              SafeLogger.error('Failed to update generation timestamp:', timestampError);
+              // Don't throw - this is just tracking, not critical
+            } else {
+              SafeLogger.info('Weekly generation timestamp updated', {
+                userId: ctx.userId,
+                bypassedLimit: input.bypassWeeklyLimit,
+              });
+            }
+          }
+        }
+
+        // NOW generate prompts (after payment confirmed)
         const prompts = await AIAgentService.generateAllPrompts(
           input.startDate,
           input.endDate,
@@ -456,50 +519,6 @@ export const agentRouter = router({
             prompts: p.prompts,
           }))
         );
-
-        // Handle credit deduction and weekly limit tracking (admins exempt)
-        if (!isAdmin(ctx.userId)) {
-          // Case 1: Using Claude Sonnet 4.5 → Always deduct 1 credit
-          // Case 2: Using DeepSeek with bypass → Deduct 1 credit
-          // Case 3: Using DeepSeek without bypass → Update timestamp, no credit deduction
-          const shouldDeductCredit = input.useClaude || input.bypassWeeklyLimit;
-
-          if (shouldDeductCredit) {
-            const { error: creditError } = await supabase
-              // @ts-expect-error Supabase v2.80.0 type inference issue
-              .rpc('decrement_claude_credits', { user_id_param: ctx.userId });
-
-            if (creditError) {
-              SafeLogger.error('Credit deduction failed:', creditError);
-              throw new Error('Failed to deduct credit: ' + creditError.message);
-            }
-
-            SafeLogger.info('Generation credit deducted', {
-              userId: ctx.userId,
-              useClaude: input.useClaude,
-              bypassedLimit: input.bypassWeeklyLimit,
-            });
-          }
-
-          // Update last free generation timestamp for DeepSeek (including bypassed)
-          if (!input.useClaude) {
-            const { error: timestampError } = await supabase
-              .from('user_subscriptions')
-              // @ts-expect-error Supabase v2.80.0 type inference issue
-              .update({ last_free_generation_at: new Date().toISOString() })
-              .eq('user_id', ctx.userId);
-
-            if (timestampError) {
-              SafeLogger.error('Failed to update generation timestamp:', timestampError);
-              // Don't throw - generation already succeeded, this is just tracking
-            } else {
-              SafeLogger.info('Weekly generation timestamp updated', {
-                userId: ctx.userId,
-                bypassedLimit: input.bypassWeeklyLimit,
-              });
-            }
-          }
-        }
 
         // Mark job as completed (only after successful credit deduction)
         await supabase

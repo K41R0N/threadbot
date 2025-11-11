@@ -14,16 +14,16 @@ COMMENT ON COLUMN user_subscriptions.tier IS
   'DEPRECATED 2025-11-11: All access now controlled by claude_credits (renamed to generation_credits in UI).
    Tier column preserved for rollback compatibility. Will be removed in Phase 2 after testing.';
 
--- Set all existing users to ''free'' (tier no longer affects access)
-UPDATE user_subscriptions
-SET tier = 'free'
-WHERE tier != 'free';
-
--- Log how many users were updated
+-- Set all existing users to 'free' (tier no longer affects access)
+-- Move UPDATE inside DO block to correctly capture ROW_COUNT
 DO $$
 DECLARE
   updated_count INTEGER;
 BEGIN
+  UPDATE user_subscriptions
+  SET tier = 'free'
+  WHERE tier IS DISTINCT FROM 'free';  -- Handles NULL and non-'free' values
+
   GET DIAGNOSTICS updated_count = ROW_COUNT;
   RAISE NOTICE 'Updated % user(s) to free tier', updated_count;
 END $$;
