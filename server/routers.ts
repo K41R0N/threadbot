@@ -235,12 +235,14 @@ export const appRouter = router({
           success,
           message: success ? 'Webhook configured successfully' : 'Failed to configure webhook',
         };
-      } catch (error: any) {
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : String(error);
+
         // Persist webhook error
         const webhookError: Database['public']['Tables']['bot_configs']['Update'] = {
           last_webhook_setup_at: new Date().toISOString(),
           last_webhook_status: 'failed',
-          last_webhook_error: error.message,
+          last_webhook_error: message,
         };
 
         await supabase
@@ -251,7 +253,7 @@ export const appRouter = router({
 
         return {
           success: false,
-          message: error.message,
+          message,
         };
       }
     }),
@@ -522,14 +524,146 @@ export const appRouter = router({
           message: 'Test prompt sent successfully! Check your Telegram.',
           logs,
         };
-      } catch (error: any) {
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : String(error);
         SafeLogger.error('Test prompt failed', { error });
-        logs.push(`❌ Error: ${error.message}`);
+        logs.push(`❌ Error: ${message}`);
 
         return {
           success: false,
-          message: `Failed to send test prompt: ${error.message}`,
+          message: `Failed to send test prompt: ${message}`,
           logs,
+        };
+      }
+    }),
+
+    // Purge all user data but preserve subscription/credits
+    purgeData: protectedProcedure.mutation(async ({ ctx }) => {
+      const supabase = serverSupabase;
+
+      SafeLogger.info('=== DATA PURGE REQUEST ===', { userId: ctx.userId });
+
+      try {
+        // Delete from all data tables (preserve user_subscriptions)
+        const tables = [
+          'bot_configs',
+          'bot_state',
+          'user_prompts',
+          'user_generation_context',
+          'user_weekly_themes',
+          'agent_generation_jobs',
+        ];
+
+        const failedTables: string[] = [];
+        const successTables: string[] = [];
+
+        for (const table of tables) {
+          const { error } = await supabase
+            .from(table)
+            .delete()
+            .eq('user_id', ctx.userId);
+
+          if (error) {
+            SafeLogger.error(`Failed to purge ${table}`, { userId: ctx.userId, error });
+            failedTables.push(table);
+          } else {
+            SafeLogger.info(`Purged ${table}`, { userId: ctx.userId });
+            successTables.push(table);
+          }
+        }
+
+        // Report failure if ANY table failed to purge
+        if (failedTables.length > 0) {
+          SafeLogger.error('Data purge incomplete - some tables failed', {
+            userId: ctx.userId,
+            failedTables,
+            successTables,
+          });
+
+          return {
+            success: false,
+            message: `Data purge incomplete. Failed to purge: ${failedTables.join(', ')}. Successfully purged: ${successTables.join(', ')}. Your subscription and credits are preserved. Please contact support for manual cleanup.`,
+          };
+        }
+
+        SafeLogger.info('Data purge completed successfully', { userId: ctx.userId });
+
+        return {
+          success: true,
+          message: 'All data has been purged. Your subscription and credits are preserved.',
+        };
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : String(error);
+        SafeLogger.error('Data purge failed', { userId: ctx.userId, error });
+        return {
+          success: false,
+          message: `Failed to purge data: ${message}`,
+        };
+      }
+    }),
+
+    // Delete account completely (including subscription)
+    deleteAccount: protectedProcedure.mutation(async ({ ctx }) => {
+      const supabase = serverSupabase;
+
+      SafeLogger.info('=== ACCOUNT DELETION REQUEST ===', { userId: ctx.userId });
+
+      try {
+        // Delete from ALL tables including subscriptions
+        const tables = [
+          'bot_configs',
+          'bot_state',
+          'user_prompts',
+          'user_generation_context',
+          'user_weekly_themes',
+          'agent_generation_jobs',
+          'user_subscriptions',
+        ];
+
+        const failedTables: string[] = [];
+        const successTables: string[] = [];
+
+        for (const table of tables) {
+          const { error } = await supabase
+            .from(table)
+            .delete()
+            .eq('user_id', ctx.userId);
+
+          if (error) {
+            SafeLogger.error(`Failed to delete from ${table}`, { userId: ctx.userId, error });
+            failedTables.push(table);
+          } else {
+            SafeLogger.info(`Deleted from ${table}`, { userId: ctx.userId });
+            successTables.push(table);
+          }
+        }
+
+        // Report failure if ANY table failed to delete
+        if (failedTables.length > 0) {
+          SafeLogger.error('Account deletion incomplete - some tables failed', {
+            userId: ctx.userId,
+            failedTables,
+            successTables,
+          });
+
+          return {
+            success: false,
+            message: `Account deletion incomplete. Failed to delete from: ${failedTables.join(', ')}. Successfully deleted from: ${successTables.join(', ')}. Please contact support for manual cleanup.`,
+          };
+        }
+
+        SafeLogger.info('Account deletion completed successfully', { userId: ctx.userId });
+
+        return {
+          success: true,
+          message: 'Your account data has been deleted from our database. You can now delete your account from Clerk if desired.',
+        };
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : String(error);
+        SafeLogger.error('Account deletion failed', { userId: ctx.userId, error });
+        return {
+          success: false,
+          message: `Failed to delete account: ${message}`,
         };
       }
     }),
