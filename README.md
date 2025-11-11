@@ -2,7 +2,9 @@
 
 **Transform your content creation workflow with AI-generated prompts delivered via Telegram.**
 
-Threadbot is a SaaS application that generates personalized content prompts using AI (Claude Sonnet 4 or DeepSeek R1) and delivers them to your Telegram at scheduled times. Perfect for daily journaling, content creation, reflection practices, and building consistent creative habits.
+> 📋 **For detailed project status, recent changes, and deployment guide**: See [PROJECT_STATUS.md](./PROJECT_STATUS.md)
+
+Threadbot is a SaaS application that generates personalized content prompts using AI (Claude Sonnet 4.5 or DeepSeek R1) and delivers them to your Telegram at scheduled times. Perfect for daily journaling, content creation, reflection practices, and building consistent creative habits.
 
 ## 🎯 What It Does
 
@@ -20,8 +22,14 @@ Threadbot is a SaaS application that generates personalized content prompts usin
 - **Smart Prompt Creation** - 5 thought-starter questions per prompt, tailored to time of day
 - **Continuous Date Ranges** - Generates 30-day ranges regardless of calendar months
 - **Model Options**:
-  - **DeepSeek R1** - Free, unlimited generations
-  - **Claude Sonnet 4** - Premium quality (requires credits)
+  - **DeepSeek R1** - FREE once per week (can bypass cooldown for 1 credit)
+  - **Claude Sonnet 4.5** - Premium quality (1 credit per generation)
+
+### Credits System
+- **Pricing**: $9 = 3 generation credits (one-time purchase)
+- Each credit = 60 prompts (30 days × morning + evening)
+- Use credits for: Claude Sonnet 4.5 OR bypassing weekly DeepSeek cooldown
+- **Stripe integration coming soon** (placeholder UI currently shows "coming soon")
 
 ### Delivery & Management
 - **Telegram Integration** - Automated delivery via Telegram bot
