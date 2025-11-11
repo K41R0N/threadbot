@@ -85,6 +85,37 @@ export default function SettingsPage() {
     },
   });
 
+  const purgeData = trpc.bot.purgeData.useMutation({
+    onSuccess: (data) => {
+      if (data.success) {
+        toast.success(data.message);
+        router.push('/dashboard');
+      } else {
+        toast.error(data.message);
+      }
+    },
+    onError: (error) => {
+      toast.error(`Failed to purge data: ${error.message}`);
+    },
+  });
+
+  const deleteAccount = trpc.bot.deleteAccount.useMutation({
+    onSuccess: (data) => {
+      if (data.success) {
+        toast.success(data.message);
+        // Redirect to home after account deletion
+        setTimeout(() => {
+          window.location.href = '/';
+        }, 2000);
+      } else {
+        toast.error(data.message);
+      }
+    },
+    onError: (error) => {
+      toast.error(`Failed to delete account: ${error.message}`);
+    },
+  });
+
   useEffect(() => {
     if (!isLoaded) return;
 
@@ -494,6 +525,104 @@ export default function SettingsPage() {
                     required
                   />
                 </div>
+              </div>
+            </div>
+          </div>
+
+          {/* DANGER ZONE */}
+          <div className="border-2 border-red-600 p-8 bg-red-50">
+            <h2 className="text-3xl font-display mb-2 text-red-600">⚠️ DANGER ZONE</h2>
+            <p className="text-sm text-red-700 mb-6">
+              These actions are irreversible. Please be certain before proceeding.
+            </p>
+
+            <div className="space-y-6">
+              {/* Purge Data */}
+              <div className="bg-white border-2 border-red-300 p-6 rounded">
+                <h3 className="font-display text-lg mb-2">PURGE ALL DATA</h3>
+                <p className="text-sm text-gray-700 mb-4">
+                  Remove all your configurations, prompts, and bot data. Your subscription tier and credits will be preserved.
+                </p>
+                <ul className="text-xs text-gray-600 mb-4 space-y-1 list-disc list-inside">
+                  <li>Deletes: Telegram/Notion tokens, bot configurations, generated prompts, themes, context</li>
+                  <li>Keeps: Subscription tier, Claude credits, Stripe billing info</li>
+                  <li>You can start fresh while maintaining your subscription</li>
+                </ul>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    if (window.confirm(
+                      'Are you sure you want to purge all your data?\n\n' +
+                      'This will delete:\n' +
+                      '• All bot configurations and tokens\n' +
+                      '• All generated prompts and themes\n' +
+                      '• All brand context and settings\n\n' +
+                      'Your subscription and credits will be preserved.\n\n' +
+                      'This action CANNOT be undone.'
+                    )) {
+                      purgeData.mutate();
+                    }
+                  }}
+                  disabled={purgeData.isPending}
+                  className="border-red-600 text-red-600 hover:bg-red-100"
+                >
+                  {purgeData.isPending ? 'PURGING...' : 'PURGE ALL DATA'}
+                </Button>
+              </div>
+
+              {/* Delete Account */}
+              <div className="bg-white border-2 border-red-600 p-6 rounded">
+                <h3 className="font-display text-lg mb-2 text-red-600">DELETE ACCOUNT</h3>
+                <p className="text-sm text-gray-700 mb-4">
+                  Permanently delete your account and all associated data from our database.
+                </p>
+                <ul className="text-xs text-gray-600 mb-4 space-y-1 list-disc list-inside">
+                  <li>Deletes: ALL data including subscription, credits, and billing info</li>
+                  <li>Does NOT delete your Clerk authentication account (you must do this separately)</li>
+                  <li>This action is permanent and cannot be undone</li>
+                </ul>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    const firstConfirm = window.confirm(
+                      '⚠️ DELETE ACCOUNT - FIRST CONFIRMATION\n\n' +
+                      'This will PERMANENTLY delete:\n' +
+                      '• All bot configurations and tokens\n' +
+                      '• All generated prompts and themes\n' +
+                      '• All brand context and settings\n' +
+                      '• Your subscription and credits\n' +
+                      '• All billing information\n\n' +
+                      'Are you absolutely sure you want to continue?'
+                    );
+
+                    if (firstConfirm) {
+                      const secondConfirm = window.confirm(
+                        '⚠️ FINAL CONFIRMATION\n\n' +
+                        'This is your last chance to cancel.\n\n' +
+                        'After this, your account data will be permanently deleted from our database.\n\n' +
+                        'Type "DELETE" in the next prompt to confirm.'
+                      );
+
+                      if (secondConfirm) {
+                        const typeConfirm = window.prompt(
+                          'Type DELETE (in capital letters) to confirm account deletion:'
+                        );
+
+                        if (typeConfirm === 'DELETE') {
+                          deleteAccount.mutate();
+                        } else {
+                          toast.info('Account deletion cancelled');
+                        }
+                      }
+                    }
+                  }}
+                  disabled={deleteAccount.isPending}
+                  className="bg-red-600 text-white hover:bg-red-700 border-red-600"
+                >
+                  {deleteAccount.isPending ? 'DELETING...' : 'DELETE ACCOUNT'}
+                </Button>
               </div>
             </div>
           </div>

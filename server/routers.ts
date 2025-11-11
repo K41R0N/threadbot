@@ -533,6 +533,99 @@ export const appRouter = router({
         };
       }
     }),
+
+    // Purge all user data but preserve subscription/credits
+    purgeData: protectedProcedure.mutation(async ({ ctx }) => {
+      const supabase = serverSupabase;
+
+      SafeLogger.info('=== DATA PURGE REQUEST ===', { userId: ctx.userId });
+
+      try {
+        // Delete from all data tables (preserve user_subscriptions)
+        const tables = [
+          'bot_configs',
+          'bot_state',
+          'user_prompts',
+          'user_generation_context',
+          'user_weekly_themes',
+          'agent_generation_jobs',
+        ];
+
+        for (const table of tables) {
+          const { error } = await supabase
+            .from(table)
+            .delete()
+            .eq('user_id', ctx.userId);
+
+          if (error) {
+            SafeLogger.error(`Failed to purge ${table}`, { userId: ctx.userId, error });
+            throw new Error(`Failed to purge data from ${table}: ${error.message}`);
+          }
+
+          SafeLogger.info(`Purged ${table}`, { userId: ctx.userId });
+        }
+
+        SafeLogger.info('Data purge completed successfully', { userId: ctx.userId });
+
+        return {
+          success: true,
+          message: 'All data has been purged. Your subscription and credits are preserved.',
+        };
+      } catch (error: any) {
+        SafeLogger.error('Data purge failed', { userId: ctx.userId, error });
+        return {
+          success: false,
+          message: `Failed to purge data: ${error.message}`,
+        };
+      }
+    }),
+
+    // Delete account completely (including subscription)
+    deleteAccount: protectedProcedure.mutation(async ({ ctx }) => {
+      const supabase = serverSupabase;
+
+      SafeLogger.info('=== ACCOUNT DELETION REQUEST ===', { userId: ctx.userId });
+
+      try {
+        // Delete from ALL tables including subscriptions
+        const tables = [
+          'bot_configs',
+          'bot_state',
+          'user_prompts',
+          'user_generation_context',
+          'user_weekly_themes',
+          'agent_generation_jobs',
+          'user_subscriptions',
+        ];
+
+        for (const table of tables) {
+          const { error } = await supabase
+            .from(table)
+            .delete()
+            .eq('user_id', ctx.userId);
+
+          if (error) {
+            SafeLogger.error(`Failed to delete from ${table}`, { userId: ctx.userId, error });
+            // Continue with other tables even if one fails
+          } else {
+            SafeLogger.info(`Deleted from ${table}`, { userId: ctx.userId });
+          }
+        }
+
+        SafeLogger.info('Account deletion completed', { userId: ctx.userId });
+
+        return {
+          success: true,
+          message: 'Your account data has been deleted from our database. You can now delete your account from Clerk if desired.',
+        };
+      } catch (error: any) {
+        SafeLogger.error('Account deletion failed', { userId: ctx.userId, error });
+        return {
+          success: false,
+          message: `Failed to delete account: ${error.message}`,
+        };
+      }
+    }),
   }),
 
   // Agent router for AI-powered prompt generation
