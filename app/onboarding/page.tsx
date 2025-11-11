@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser } from '@clerk/nextjs';
 import { Button } from '@/components/ui/button';
+import { SetupModal } from '@/components/SetupModal';
 import { trpc } from '@/lib/trpc';
 import { toast } from 'sonner';
 
@@ -11,6 +12,7 @@ export default function OnboardingPage() {
   const router = useRouter();
   const { isLoaded, isSignedIn } = useUser();
   const [showOptions, setShowOptions] = useState(false);
+  const [showSetupModal, setShowSetupModal] = useState(false);
 
   const { data: onboardingStatus, isLoading: statusLoading } = trpc.agent.getOnboardingStatus.useQuery(undefined, {
     enabled: isSignedIn,
@@ -59,10 +61,15 @@ export default function OnboardingPage() {
   };
 
   const handleStartNotionSetup = () => {
-    router.push('/setup/notion');
+    setShowSetupModal(true);
   };
 
   const handleSkip = () => {
+    skipOnboarding.mutate();
+  };
+
+  const handleModalClose = () => {
+    setShowSetupModal(false);
     skipOnboarding.mutate();
   };
 
@@ -168,6 +175,9 @@ export default function OnboardingPage() {
           </div>
         </div>
       </div>
+
+      {/* Setup Modal */}
+      <SetupModal isOpen={showSetupModal} onClose={handleModalClose} />
     </div>
   );
 }
