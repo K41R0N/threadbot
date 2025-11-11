@@ -126,13 +126,14 @@ export class BotService {
       // SECURITY: Escape Markdown in user-generated content
       const escapedTopic = TelegramService.escapeMarkdown(topicProperty);
       const escapedContent = TelegramService.escapeMarkdown(content);
+      const escapedDate = TelegramService.escapeMarkdown(formattedDate);
 
       // Format message with requested structure
       const replyText = config.prompt_source === 'agent'
         ? 'Reply to this message to log your response.'
         : 'Reply to this message to log your response to Notion.';
 
-      const message = `${greeting}\n\n${emoji} ${formattedDate} - ${promptLabel}\n🎯 ${escapedTopic}\n\n${escapedContent}\n\n💬 ${replyText}`;
+      const message = `${greeting}\n\n${emoji} ${escapedDate} - ${promptLabel}\n🎯 ${escapedTopic}\n\n${escapedContent}\n\n💬 ${replyText}`;
 
       await telegram.sendMessage(config.telegram_chat_id, message);
 

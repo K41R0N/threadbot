@@ -2,9 +2,13 @@ import { router, protectedProcedure } from './trpc';
 import { z } from 'zod';
 import { serverSupabase } from '@/lib/supabase-server';
 import { TelegramService } from './services/telegram';
+import { NotionService } from './services/notion';
 import { BotService } from './services/bot';
 import { agentRouter } from './routers/agent';
 import type { Database } from '@/lib/database.types';
+import type { BotConfig } from '@/lib/supabase';
+import { format, toZonedTime } from 'date-fns-tz';
+import { SafeLogger } from '@/lib/logger';
 
 export const appRouter = router({
   bot: router({
@@ -259,22 +263,276 @@ export const appRouter = router({
       }))
       .mutation(async ({ ctx, input }) => {
         const supabase = serverSupabase;
-        
+
         const { data: config, error } = await supabase
           .from('bot_configs')
           .select('*')
           .eq('user_id', ctx.userId)
           .single();
-        
+
         if (error || !config) {
           return {
             success: false,
             message: 'Bot configuration not found',
           };
         }
-        
+
         return await BotService.sendScheduledPrompt(config, input.type);
       }),
+
+    // Test Telegram prompt sending with detailed logging
+    testTelegramPrompt: protectedProcedure.mutation(async ({ ctx }) => {
+      const supabase = serverSupabase;
+
+      SafeLogger.info('=== TEST TELEGRAM PROMPT START ===', { userId: ctx.userId });
+
+      // Step 1: Check if bot config exists
+      const { data: config, error: configError } = await supabase
+        .from('bot_configs')
+        .select('*')
+        .eq('user_id', ctx.userId)
+        .single();
+
+      if (configError) {
+        SafeLogger.error('Bot config not found', {
+          userId: ctx.userId,
+          error: configError
+        });
+        return {
+          success: false,
+          message: 'Bot configuration not found. Please configure your bot in Settings.',
+          logs: ['❌ Bot config not found'],
+        };
+      }
+
+      const logs: string[] = [];
+      logs.push('✅ Bot config found');
+
+      const botConfig = config as BotConfig;
+
+      // Step 2: Check if bot is active
+      SafeLogger.info('Bot config status', {
+        isActive: botConfig.is_active,
+        promptSource: botConfig.prompt_source,
+        hasTelegramToken: !!botConfig.telegram_bot_token,
+        hasTelegramChatId: !!botConfig.telegram_chat_id,
+      });
+
+      logs.push(`📊 Bot active: ${botConfig.is_active ? 'Yes' : 'No'}`);
+      logs.push(`📡 Prompt source: ${botConfig.prompt_source}`);
+
+      // Step 3: Check Telegram credentials
+      if (!botConfig.telegram_bot_token) {
+        SafeLogger.error('Telegram bot token missing');
+        return {
+          success: false,
+          message: 'Telegram bot token not configured',
+          logs: [...logs, '❌ Telegram bot token missing'],
+        };
+      }
+      logs.push('✅ Telegram bot token configured');
+
+      if (!botConfig.telegram_chat_id) {
+        SafeLogger.error('Telegram chat ID missing');
+        return {
+          success: false,
+          message: 'Telegram chat ID not configured',
+          logs: [...logs, '❌ Telegram chat ID missing'],
+        };
+      }
+      logs.push('✅ Telegram chat ID configured');
+
+      // Step 4: Find closest prompt
+      SafeLogger.info('Searching for prompts', { source: botConfig.prompt_source });
+
+      let promptContent: string | null = null;
+      let promptTopic: string = 'Test Prompt';
+      let promptDate: string = 'Today';
+
+      try {
+        if (botConfig.prompt_source === 'agent') {
+          // Find closest prompt from agent database
+          const { data: prompts, error: promptError } = await supabase
+            .from('user_prompts')
+            .select('*')
+            .eq('user_id', ctx.userId)
+            .order('date', { ascending: false })
+            .limit(1);
+
+          if (promptError) {
+            SafeLogger.error('Failed to fetch agent prompts', { error: promptError });
+            logs.push('❌ Failed to fetch agent prompts');
+            throw new Error(`Failed to fetch agent prompts: ${promptError.message}`);
+          }
+
+          if (!prompts || prompts.length === 0) {
+            SafeLogger.warn('No agent prompts found');
+            logs.push('⚠️ No agent prompts found');
+            return {
+              success: false,
+              message: 'No agent prompts found. Please generate prompts first.',
+              logs,
+            };
+          }
+
+          const prompt = prompts[0] as any;
+
+          // Runtime validation: Ensure prompt has required structure
+          if (!prompt.prompts || !Array.isArray(prompt.prompts) || prompt.prompts.length === 0) {
+            SafeLogger.warn('Agent prompt has no content', { promptId: prompt.id });
+            logs.push('⚠️ Agent prompt has no content');
+            return {
+              success: false,
+              message: 'Agent prompt is empty. Please regenerate prompts.',
+              logs,
+            };
+          }
+
+          if (!prompt.date) {
+            SafeLogger.warn('Agent prompt missing date field', { promptId: prompt.id });
+            logs.push('⚠️ Agent prompt missing date field');
+            return {
+              success: false,
+              message: 'Agent prompt data is malformed. Please regenerate prompts.',
+              logs,
+            };
+          }
+
+          promptContent = prompt.prompts
+            .map((p: string, i: number) => `${i + 1}. ${p}`)
+            .join('\n');
+          promptTopic = prompt.week_theme || 'Daily Reflection';
+          promptDate = prompt.date;
+
+          logs.push(`✅ Found agent prompt for ${prompt.date}`);
+          SafeLogger.info('Agent prompt found', {
+            date: prompt.date,
+            theme: prompt.week_theme || 'Daily Reflection',
+            promptCount: prompt.prompts.length
+          });
+        } else {
+          // Find prompt from Notion database
+          if (!botConfig.notion_token || !botConfig.notion_database_id) {
+            SafeLogger.error('Notion credentials missing');
+            logs.push('❌ Notion token or database ID missing');
+            return {
+              success: false,
+              message: 'Notion token or database ID not configured',
+              logs,
+            };
+          }
+
+          logs.push('✅ Notion credentials configured');
+
+          const notion = new NotionService(botConfig.notion_token);
+          const now = new Date();
+          const zonedDate = toZonedTime(now, botConfig.timezone);
+          const dateString = format(zonedDate, 'yyyy-MM-dd');
+
+          // Try morning first, then evening
+          let page = await notion.queryDatabase(
+            botConfig.notion_database_id,
+            dateString,
+            'morning'
+          );
+
+          if (!page) {
+            page = await notion.queryDatabase(
+              botConfig.notion_database_id,
+              dateString,
+              'evening'
+            );
+          }
+
+          if (!page) {
+            SafeLogger.warn('No Notion prompt found for today');
+            logs.push('⚠️ No Notion prompt found for today');
+            return {
+              success: false,
+              message: 'No Notion prompt found for today',
+              logs,
+            };
+          }
+
+          promptContent = await notion.getPageContent(page.id);
+
+          if (!promptContent) {
+            SafeLogger.warn('Notion page is empty');
+            logs.push('⚠️ Notion page is empty');
+            return {
+              success: false,
+              message: 'Notion page is empty',
+              logs,
+            };
+          }
+
+          const pageProps = page.properties as any;
+          promptTopic =
+            pageProps.Topic?.rich_text?.[0]?.plain_text ||
+            pageProps.Week?.rich_text?.[0]?.plain_text ||
+            pageProps.Name?.title?.[0]?.plain_text ||
+            'Daily Prompt';
+          promptDate = dateString;
+
+          logs.push(`✅ Found Notion prompt for ${dateString}`);
+          SafeLogger.info('Notion prompt found', { date: dateString, topic: promptTopic });
+        }
+
+        // Step 5: Send via Telegram
+        // Final validation: Ensure we have content and required fields
+        if (!promptContent || promptContent.trim() === '') {
+          SafeLogger.error('No prompt content after fetch', { source: botConfig.prompt_source });
+          logs.push('❌ No prompt content available');
+          return {
+            success: false,
+            message: 'Failed to retrieve prompt content',
+            logs,
+          };
+        }
+
+        if (!promptDate) {
+          SafeLogger.error('No prompt date after fetch', { source: botConfig.prompt_source });
+          logs.push('❌ Prompt date missing');
+          return {
+            success: false,
+            message: 'Prompt data is incomplete',
+            logs,
+          };
+        }
+
+        logs.push('📤 Sending to Telegram...');
+        SafeLogger.info('Sending test prompt to Telegram', {
+          chatId: botConfig.telegram_chat_id
+        });
+
+        const telegram = new TelegramService(botConfig.telegram_bot_token);
+        const escapedTopic = TelegramService.escapeMarkdown(promptTopic);
+        const escapedContent = TelegramService.escapeMarkdown(promptContent);
+        const escapedDate = TelegramService.escapeMarkdown(promptDate);
+
+        const message = `🧪 *TEST PROMPT*\n\n📅 ${escapedDate}\n🎯 ${escapedTopic}\n\n${escapedContent}\n\n✅ Your Telegram bot is working correctly\\!`;
+
+        await telegram.sendMessage(botConfig.telegram_chat_id, message);
+
+        logs.push('✅ Message sent successfully!');
+        SafeLogger.info('Test prompt sent successfully');
+
+        return {
+          success: true,
+          message: 'Test prompt sent successfully! Check your Telegram.',
+          logs,
+        };
+      } catch (error: any) {
+        SafeLogger.error('Test prompt failed', { error });
+        logs.push(`❌ Error: ${error.message}`);
+
+        return {
+          success: false,
+          message: `Failed to send test prompt: ${error.message}`,
+          logs,
+        };
+      }
+    }),
   }),
 
   // Agent router for AI-powered prompt generation
