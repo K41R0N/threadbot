@@ -42,6 +42,12 @@ export default function SettingsPage() {
       setMorningTime(botConfig.morning_time || '09:00');
       setEveningTime(botConfig.evening_time || '18:00');
       setPromptSource(botConfig.prompt_source || 'notion');
+    } else {
+      // Set defaults for AI-only users without bot_config
+      setTimezone('UTC');
+      setMorningTime('09:00');
+      setEveningTime('18:00');
+      setPromptSource('agent'); // Default to agent for AI-only users
     }
   }, [config]);
 
@@ -65,13 +71,13 @@ export default function SettingsPage() {
 
     if (!isSignedIn) {
       router.push('/');
-    } else if (!configLoading && !config) {
-      router.push('/onboarding');
     }
-  }, [isLoaded, isSignedIn, config, configLoading, router]);
+    // Note: Allow access to Settings even without bot_config
+    // AI-only users need to be able to configure Telegram/Notion later
+  }, [isLoaded, isSignedIn, router]);
 
-  // Loading state
-  if (configLoading || !config) {
+  // Loading state - only show loader while fetching, not if config is null
+  if (configLoading && config === undefined) {
     return (
       <div className="min-h-screen bg-white">
         <header className="border-b-2 border-black">
@@ -117,8 +123,8 @@ export default function SettingsPage() {
     );
   }
 
-  // TypeScript type assertion: config is non-null after early return check
-  const botConfig = config as BotConfig;
+  // Note: config may be null for AI-only users who haven't set up Telegram/Notion
+  const botConfig: BotConfig | null = config || null;
 
   const handleClearNotionToken = () => {
     setShouldClearNotionToken(true);
@@ -152,8 +158,8 @@ export default function SettingsPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // TypeScript: config is non-null after early return check
-    const botConfig = config as BotConfig;
+    // Note: config may be null for AI-only users
+    const botConfig: BotConfig | null = config || null;
 
     // Type-safe update data matching server schema
     type ConfigUpdate = {
@@ -185,7 +191,8 @@ export default function SettingsPage() {
       }
 
       // Handle database ID
-      if (databaseId !== botConfig.notion_database_id) {
+      const currentDatabaseId = botConfig ? (botConfig as BotConfig).notion_database_id : '';
+      if (databaseId !== (currentDatabaseId || '')) {
         if (databaseId === '') {
           updateData.notionDatabaseId = null; // Clear database ID
         } else {
@@ -194,7 +201,8 @@ export default function SettingsPage() {
       }
     }
 
-    if (telegramChatId !== botConfig.telegram_chat_id) updateData.telegramChatId = telegramChatId;
+    const currentChatId = botConfig ? (botConfig as BotConfig).telegram_chat_id : '';
+    if (telegramChatId !== (currentChatId || '')) updateData.telegramChatId = telegramChatId;
 
     // Handle telegram bot token: check explicit clear flag
     if (shouldClearTelegramToken) {

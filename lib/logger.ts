@@ -40,11 +40,12 @@ export class SafeLogger {
 
     // Handle Error objects specially
     if (obj instanceof Error) {
+      // Return basic error properties without recursion to avoid stack overflow
+      // Error objects can have circular references that cause infinite recursion
       return {
         name: obj.name,
         message: obj.message,
         stack: obj.stack,
-        ...this.sanitize({ ...obj }), // Spread any additional properties
       };
     }
 
