@@ -65,13 +65,12 @@ export default function DashboardPage() {
 
     if (!isSignedIn) {
       router.push('/');
-    } else if (!configLoading && !config) {
-      router.push('/onboarding');
     }
-  }, [isLoaded, isSignedIn, config, configLoading, router]);
+    // Note: bot_config is optional - AI-only users don't need it
+  }, [isLoaded, isSignedIn, router]);
 
-  // Loading state
-  if (configLoading || !config) {
+  // Loading state - only show if we're still loading AND user needs config
+  if (!isLoaded || (configLoading && config === undefined)) {
     return (
       <div className="min-h-screen bg-white">
         <header className="border-b-2 border-black">
@@ -113,8 +112,8 @@ export default function DashboardPage() {
     );
   }
 
-  // TypeScript type assertion: config is non-null after early return check
-  const botConfig = config as BotConfig;
+  // Note: config may be null for AI-only users (no Telegram/Notion setup)
+  const botConfig: BotConfig | null = config || null;
 
   // Group prompts by month to show existing databases
   const agentDatabases: AgentDatabase[] = (allPrompts as UserPrompt[] | undefined)?.reduce<AgentDatabase[]>((acc, prompt) => {
@@ -125,8 +124,9 @@ export default function DashboardPage() {
       const eveningCount = monthPrompts.filter(p => p.post_type === 'evening').length;
 
       // Check if this database is connected to the bot
-      const isConnected = botConfig.prompt_source === 'agent';
-      const isActive = isConnected && botConfig.is_active;
+      const botCfg = botConfig as BotConfig | null;
+      const isConnected = botCfg?.prompt_source === 'agent';
+      const isActive = Boolean(isConnected && botCfg?.is_active);
 
       acc.push({
         monthKey,
@@ -141,17 +141,20 @@ export default function DashboardPage() {
     return acc;
   }, []) || [];
 
-  const hasNotionDatabase = botConfig.notion_database_id;
-  const isNotionActive = botConfig.prompt_source === 'notion' && botConfig.is_active;
-  const isNotionConnected = botConfig.prompt_source === 'notion';
+  const botCfg = botConfig as BotConfig | null;
+  const hasNotionDatabase = botCfg?.notion_database_id;
+  const isNotionActive = botCfg?.prompt_source === 'notion' && botCfg?.is_active;
+  const isNotionConnected = botCfg?.prompt_source === 'notion';
 
   const handleCreateNew = () => {
     router.push('/agent/create');
   };
 
   const toggleBot = () => {
+    const cfg = botConfig as BotConfig | null;
+    if (!cfg) return;
     updateConfig.mutate({
-      isActive: !botConfig.is_active,
+      isActive: !cfg.is_active,
     });
   };
 
@@ -169,68 +172,73 @@ export default function DashboardPage() {
   return (
     <AuthenticatedLayout currentPage="dashboard">
       <div className="container mx-auto px-4 py-12 max-w-6xl">
-        {/* Bot Status Card */}
-        <div className="border-2 border-black p-8 mb-8">
-          <div className="flex justify-between items-start mb-6">
-            <div>
-              <h2 className="text-3xl font-display mb-2">BOT STATUS</h2>
-              <div className="flex items-center gap-3">
-                <div className={`w-4 h-4 rounded-full ${botConfig.is_active ? 'bg-green-500' : 'bg-gray-300'}`} />
-                <span className="font-display text-xl">
-                  {botConfig.is_active ? 'ACTIVE' : 'INACTIVE'}
-                </span>
-              </div>
-              <div className="mt-2 text-sm text-gray-600">
-                Prompt Source: <span className="font-display uppercase">{botConfig.prompt_source === 'agent' ? '🤖 AI Agent' : '📝 Notion'}</span>
-              </div>
-
-              {/* Webhook Health Status */}
-              {botConfig.last_webhook_setup_at && (
-                <div className="mt-3 border-t border-gray-200 pt-3">
-                  <div className="text-xs text-gray-500 mb-1">
-                    Webhook Status
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {botConfig.last_webhook_status === 'success' ? (
-                      <>
-                        <div className="w-2 h-2 bg-green-500 rounded-full" />
-                        <span className="text-sm text-green-700 font-display">CONNECTED</span>
-                      </>
-                    ) : (
-                      <>
-                        <div className="w-2 h-2 bg-red-500 rounded-full" />
-                        <span className="text-sm text-red-700 font-display">FAILED</span>
-                      </>
-                    )}
-                    <span className="text-xs text-gray-500">
-                      • Last checked: {new Date(botConfig.last_webhook_setup_at).toLocaleString()}
+        {/* Bot Status Card - only show if Telegram/Notion is configured */}
+        {botConfig && (() => {
+          const cfg = botConfig as BotConfig;
+          return (
+            <div className="border-2 border-black p-8 mb-8">
+              <div className="flex justify-between items-start mb-6">
+                <div>
+                  <h2 className="text-3xl font-display mb-2">BOT STATUS</h2>
+                  <div className="flex items-center gap-3">
+                    <div className={`w-4 h-4 rounded-full ${cfg.is_active ? 'bg-green-500' : 'bg-gray-300'}`} />
+                    <span className="font-display text-xl">
+                      {cfg.is_active ? 'ACTIVE' : 'INACTIVE'}
                     </span>
                   </div>
-                  {botConfig.last_webhook_error && (
-                    <div className="mt-2 text-xs text-red-600 bg-red-50 p-2 rounded border border-red-200">
-                      Error: {botConfig.last_webhook_error}
+                  <div className="mt-2 text-sm text-gray-600">
+                    Prompt Source: <span className="font-display uppercase">{cfg.prompt_source === 'agent' ? '🤖 AI Agent' : '📝 Notion'}</span>
+                  </div>
+
+                  {/* Webhook Health Status */}
+                  {cfg.last_webhook_setup_at && (
+                    <div className="mt-3 border-t border-gray-200 pt-3">
+                      <div className="text-xs text-gray-500 mb-1">
+                        Webhook Status
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {cfg.last_webhook_status === 'success' ? (
+                          <>
+                            <div className="w-2 h-2 bg-green-500 rounded-full" />
+                            <span className="text-sm text-green-700 font-display">CONNECTED</span>
+                          </>
+                        ) : (
+                          <>
+                            <div className="w-2 h-2 bg-red-500 rounded-full" />
+                            <span className="text-sm text-red-700 font-display">FAILED</span>
+                          </>
+                        )}
+                        <span className="text-xs text-gray-500">
+                          • Last checked: {new Date(cfg.last_webhook_setup_at).toLocaleString()}
+                        </span>
+                      </div>
+                      {cfg.last_webhook_error && (
+                        <div className="mt-2 text-xs text-red-600 bg-red-50 p-2 rounded border border-red-200">
+                          Error: {cfg.last_webhook_error}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
-              )}
+                <div className="flex gap-3">
+                  <Button
+                    onClick={toggleBot}
+                    variant={cfg.is_active ? 'outline' : 'default'}
+                    disabled={updateConfig.isPending}
+                  >
+                    {cfg.is_active ? 'DEACTIVATE' : 'ACTIVATE'}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => router.push('/settings')}
+                  >
+                    CONFIGURE BOT
+                  </Button>
+                </div>
+              </div>
             </div>
-            <div className="flex gap-3">
-              <Button
-                onClick={toggleBot}
-                variant={botConfig.is_active ? 'outline' : 'default'}
-                disabled={updateConfig.isPending}
-              >
-                {botConfig.is_active ? 'DEACTIVATE' : 'ACTIVATE'}
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => router.push('/settings')}
-              >
-                CONFIGURE BOT
-              </Button>
-            </div>
-          </div>
-        </div>
+          );
+        })()}
 
         {/* Claude Credits */}
         <div className="border-2 border-black p-8 mb-8">
@@ -333,7 +341,7 @@ export default function DashboardPage() {
                       <div className="flex items-center gap-4 text-sm text-gray-600">
                         <span>Connected to your Notion workspace</span>
                         <span>•</span>
-                        <span>Database ID: {botConfig.notion_database_id?.slice(0, 8)}...</span>
+                        <span>Database ID: {botCfg?.notion_database_id?.slice(0, 8)}...</span>
                       </div>
                       {isNotionActive && (
                         <div className="mt-2 text-sm text-green-700">
