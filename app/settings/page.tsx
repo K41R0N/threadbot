@@ -32,6 +32,8 @@ export default function SettingsPage() {
   const [showTelegramToken, setShowTelegramToken] = useState(false);
   const [shouldClearNotionToken, setShouldClearNotionToken] = useState(false);
   const [shouldClearTelegramToken, setShouldClearTelegramToken] = useState(false);
+  const [testLogs, setTestLogs] = useState<string[]>([]);
+  const [showTestLogs, setShowTestLogs] = useState(false);
 
   useEffect(() => {
     if (config) {
@@ -65,6 +67,23 @@ export default function SettingsPage() {
   });
 
   const setupWebhookForUser = trpc.bot.setupWebhookForUser.useMutation();
+
+  const testTelegramPrompt = trpc.bot.testTelegramPrompt.useMutation({
+    onSuccess: (data) => {
+      setTestLogs(data.logs || []);
+      setShowTestLogs(true);
+      if (data.success) {
+        toast.success(data.message);
+      } else {
+        toast.error(data.message);
+      }
+    },
+    onError: (error) => {
+      setTestLogs([`❌ Error: ${error.message}`]);
+      setShowTestLogs(true);
+      toast.error(`Test failed: ${error.message}`);
+    },
+  });
 
   useEffect(() => {
     if (!isLoaded) return;
@@ -387,6 +406,49 @@ export default function SettingsPage() {
                   onChange={(e) => setTelegramChatId(e.target.value)}
                   required
                 />
+              </div>
+
+              {/* Test Button */}
+              <div className="border-t-2 border-gray-200 pt-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h3 className="font-display text-lg mb-1">TEST YOUR BOT</h3>
+                    <p className="text-sm text-gray-600">
+                      Send a test prompt to verify your Telegram bot is working
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    onClick={() => testTelegramPrompt.mutate()}
+                    disabled={testTelegramPrompt.isPending}
+                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                  >
+                    {testTelegramPrompt.isPending ? 'TESTING...' : '🧪 TEST NOW'}
+                  </Button>
+                </div>
+
+                {/* Test Logs */}
+                {showTestLogs && testLogs.length > 0 && (
+                  <div className="bg-gray-50 border-2 border-gray-200 p-4 rounded">
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="font-display text-sm">Test Results:</h4>
+                      <button
+                        type="button"
+                        onClick={() => setShowTestLogs(false)}
+                        className="text-xs text-gray-500 hover:text-gray-700"
+                      >
+                        CLOSE
+                      </button>
+                    </div>
+                    <div className="space-y-2">
+                      {testLogs.map((log, index) => (
+                        <div key={index} className="text-sm font-mono">
+                          {log}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
