@@ -554,6 +554,9 @@ export const appRouter = router({
           'agent_generation_jobs',
         ];
 
+        const failedTables: string[] = [];
+        const successTables: string[] = [];
+
         for (const table of tables) {
           const { error } = await supabase
             .from(table)
@@ -562,10 +565,25 @@ export const appRouter = router({
 
           if (error) {
             SafeLogger.error(`Failed to purge ${table}`, { userId: ctx.userId, error });
-            throw new Error(`Failed to purge data from ${table}: ${error.message}`);
+            failedTables.push(table);
+          } else {
+            SafeLogger.info(`Purged ${table}`, { userId: ctx.userId });
+            successTables.push(table);
           }
+        }
 
-          SafeLogger.info(`Purged ${table}`, { userId: ctx.userId });
+        // Report failure if ANY table failed to purge
+        if (failedTables.length > 0) {
+          SafeLogger.error('Data purge incomplete - some tables failed', {
+            userId: ctx.userId,
+            failedTables,
+            successTables,
+          });
+
+          return {
+            success: false,
+            message: `Data purge incomplete. Failed to purge: ${failedTables.join(', ')}. Successfully purged: ${successTables.join(', ')}. Your subscription and credits are preserved. Please contact support for manual cleanup.`,
+          };
         }
 
         SafeLogger.info('Data purge completed successfully', { userId: ctx.userId });
