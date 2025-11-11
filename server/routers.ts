@@ -97,6 +97,7 @@ export const appRouter = router({
       }),
 
     // Update bot configuration
+    // UPSERT: Creates config if it doesn't exist (for AI-only users)
     updateConfig: protectedProcedure
       .input(z.object({
         notionToken: z.string().nullable().optional(),
@@ -112,33 +113,78 @@ export const appRouter = router({
       .mutation(async ({ ctx, input }) => {
         const supabase = serverSupabase;
 
-        // Type-safe update data for bot_configs table
-        const updateData: Database['public']['Tables']['bot_configs']['Update'] = {};
-        // Support clearing tokens by distinguishing undefined (not provided) from null (clear)
-        if (input.notionToken !== undefined) updateData.notion_token = input.notionToken;
-        if (input.notionDatabaseId !== undefined) updateData.notion_database_id = input.notionDatabaseId;
-        if (input.telegramBotToken !== undefined) updateData.telegram_bot_token = input.telegramBotToken;
-        if (input.telegramChatId !== undefined) updateData.telegram_chat_id = input.telegramChatId;
-        if (input.timezone) updateData.timezone = input.timezone;
-        if (input.morningTime) updateData.morning_time = input.morningTime;
-        if (input.eveningTime) updateData.evening_time = input.eveningTime;
-        if (input.isActive !== undefined) updateData.is_active = input.isActive;
-        if (input.promptSource) updateData.prompt_source = input.promptSource;
-        
-        const { data, error } = await supabase
+        // Check if config exists
+        const { data: existingConfig } = await supabase
           .from('bot_configs')
-          // @ts-expect-error Supabase v2.80.0 type inference issue
-          .update(updateData)
+          .select('id')
           .eq('user_id', ctx.userId)
-          .select('id, user_id, notion_database_id, telegram_chat_id, timezone, morning_time, evening_time, is_active, prompt_source, last_webhook_setup_at, last_webhook_status, last_webhook_error, created_at, updated_at')
           .single();
 
-        if (error) {
-          throw new Error('Failed to update bot configuration');
-        }
+        if (existingConfig) {
+          // UPDATE existing config
+          const updateData: Database['public']['Tables']['bot_configs']['Update'] = {};
+          // Support clearing tokens by distinguishing undefined (not provided) from null (clear)
+          if (input.notionToken !== undefined) updateData.notion_token = input.notionToken;
+          if (input.notionDatabaseId !== undefined) updateData.notion_database_id = input.notionDatabaseId;
+          if (input.telegramBotToken !== undefined) updateData.telegram_bot_token = input.telegramBotToken;
+          if (input.telegramChatId !== undefined) updateData.telegram_chat_id = input.telegramChatId;
+          if (input.timezone) updateData.timezone = input.timezone;
+          if (input.morningTime) updateData.morning_time = input.morningTime;
+          if (input.eveningTime) updateData.evening_time = input.eveningTime;
+          if (input.isActive !== undefined) updateData.is_active = input.isActive;
+          if (input.promptSource) updateData.prompt_source = input.promptSource;
 
-        // SECURITY: Return config without sensitive tokens
-        return data;
+          const { data, error } = await supabase
+            .from('bot_configs')
+            // @ts-expect-error Supabase v2.80.0 type inference issue
+            .update(updateData)
+            .eq('user_id', ctx.userId)
+            .select('id, user_id, notion_database_id, telegram_chat_id, timezone, morning_time, evening_time, is_active, prompt_source, last_webhook_setup_at, last_webhook_status, last_webhook_error, created_at, updated_at')
+            .single();
+
+          if (error) {
+            throw new Error('Failed to update bot configuration');
+          }
+
+          return data;
+        } else {
+          // CREATE new config for AI-only users
+          const insertData: Database['public']['Tables']['bot_configs']['Insert'] = {
+            user_id: ctx.userId,
+            notion_token: input.notionToken || null,
+            notion_database_id: input.notionDatabaseId || null,
+            telegram_bot_token: input.telegramBotToken || null,
+            telegram_chat_id: input.telegramChatId || null,
+            timezone: input.timezone || 'UTC',
+            morning_time: input.morningTime || '09:00',
+            evening_time: input.eveningTime || '18:00',
+            is_active: input.isActive !== undefined ? input.isActive : false,
+            prompt_source: input.promptSource || 'agent',
+          };
+
+          const { data, error } = await supabase
+            .from('bot_configs')
+            // @ts-expect-error Supabase v2.80.0 type inference issue
+            .insert(insertData)
+            .select('id, user_id, notion_database_id, telegram_chat_id, timezone, morning_time, evening_time, is_active, prompt_source, last_webhook_setup_at, last_webhook_status, last_webhook_error, created_at, updated_at')
+            .single();
+
+          if (error) {
+            throw new Error('Failed to create bot configuration');
+          }
+
+          // Initialize bot state
+          const stateData: Database['public']['Tables']['bot_state']['Insert'] = {
+            user_id: ctx.userId,
+          };
+
+          await supabase
+            .from('bot_state')
+            // @ts-expect-error Supabase v2.80.0 type inference issue
+            .insert(stateData);
+
+          return data;
+        }
       }),
 
     // Set up Telegram webhook (server-side, token never exposed to client)
