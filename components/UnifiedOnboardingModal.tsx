@@ -66,13 +66,11 @@ export function UnifiedOnboardingModal({ isOpen, onClose }: UnifiedOnboardingMod
 
   const updateConfig = trpc.bot.updateConfig.useMutation({
     onSuccess: () => {
-      if (currentStep === 'telegram-setup') {
-        toast.success('Telegram connected!');
-        setCurrentStep('schedule-setup');
-      } else if (currentStep === 'schedule-setup') {
+      if (currentStep === 'schedule-setup') {
         toast.success('Setup complete! Bot is now active.');
         onClose();
       }
+      // Note: telegram-setup success is handled in handleTelegramSubmit
     },
     onError: (error) => {
       toast.error(error.message);
@@ -127,15 +125,25 @@ export function UnifiedOnboardingModal({ isOpen, onClose }: UnifiedOnboardingMod
       return;
     }
 
-    try {
-      await setupWebhook.mutateAsync({ botToken: telegramToken });
-      updateConfig.mutate({
-        telegramBotToken: telegramToken,
-        telegramChatId: chatId,
-      });
-    } catch (error: any) {
-      toast.error(error.message);
-    }
+    // First save telegram credentials to database
+    updateConfig.mutate({
+      telegramBotToken: telegramToken,
+      telegramChatId: chatId,
+    }, {
+      onSuccess: async () => {
+        // Then setup webhook (retrieves token from database server-side)
+        try {
+          await setupWebhook.mutateAsync();
+          toast.success('Telegram connected!');
+          setCurrentStep('schedule-setup');
+        } catch (error: any) {
+          toast.error(`Webhook setup failed: ${error.message}`);
+        }
+      },
+      onError: (error) => {
+        toast.error(`Failed to save Telegram credentials: ${error.message}`);
+      }
+    });
   };
 
   const handleScheduleSubmit = (e: React.FormEvent) => {
@@ -150,6 +158,12 @@ export function UnifiedOnboardingModal({ isOpen, onClose }: UnifiedOnboardingMod
 
   const handleSkip = () => {
     skipOnboarding.mutate();
+  };
+
+  const handleSkipTelegram = () => {
+    // Skip Telegram setup in Notion flow, go directly to schedule
+    toast.info('Telegram setup skipped. You can configure it later in Settings.');
+    setCurrentStep('schedule-setup');
   };
 
   const handleBack = () => {
@@ -399,7 +413,7 @@ export function UnifiedOnboardingModal({ isOpen, onClose }: UnifiedOnboardingMod
             </div>
             <div className="flex gap-3">
               <Button type="button" variant="outline" onClick={handleBack}>← BACK</Button>
-              <Button type="button" variant="outline" onClick={handleSkip} className="flex-1">SKIP</Button>
+              <Button type="button" variant="outline" onClick={handleSkipTelegram} className="flex-1">SKIP FOR NOW</Button>
               <Button type="submit" disabled={updateConfig.isPending || setupWebhook.isPending}>
                 {updateConfig.isPending || setupWebhook.isPending ? 'CONNECTING...' : 'NEXT →'}
               </Button>
