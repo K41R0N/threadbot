@@ -375,28 +375,41 @@ export const appRouter = router({
             };
           }
 
-          const prompt = prompts[0];
-          // @ts-expect-error Supabase v2.80.0 type inference issue
-          if (prompt.prompts && prompt.prompts.length > 0) {
-            // @ts-expect-error Supabase v2.80.0 type inference issue
-            promptContent = prompt.prompts
-              .map((p: string, i: number) => `${i + 1}. ${p}`)
-              .join('\n');
-            // @ts-expect-error Supabase v2.80.0 type inference issue
-            promptTopic = prompt.week_theme || 'Test Prompt';
-            // @ts-expect-error Supabase v2.80.0 type inference issue
-            promptDate = prompt.date;
-            // @ts-expect-error Supabase v2.80.0 type inference issue
-            logs.push(`✅ Found agent prompt for ${prompt.date}`);
-            SafeLogger.info('Agent prompt found', {
-              // @ts-expect-error Supabase v2.80.0 type inference issue
-              date: prompt.date,
-              // @ts-expect-error Supabase v2.80.0 type inference issue
-              theme: prompt.week_theme
-            });
-          } else {
-            throw new Error('Prompt content is empty');
+          const prompt = prompts[0] as any;
+
+          // Runtime validation: Ensure prompt has required structure
+          if (!prompt.prompts || !Array.isArray(prompt.prompts) || prompt.prompts.length === 0) {
+            SafeLogger.warn('Agent prompt has no content', { promptId: prompt.id });
+            logs.push('⚠️ Agent prompt has no content');
+            return {
+              success: false,
+              message: 'Agent prompt is empty. Please regenerate prompts.',
+              logs,
+            };
           }
+
+          if (!prompt.date) {
+            SafeLogger.warn('Agent prompt missing date field', { promptId: prompt.id });
+            logs.push('⚠️ Agent prompt missing date field');
+            return {
+              success: false,
+              message: 'Agent prompt data is malformed. Please regenerate prompts.',
+              logs,
+            };
+          }
+
+          promptContent = prompt.prompts
+            .map((p: string, i: number) => `${i + 1}. ${p}`)
+            .join('\n');
+          promptTopic = prompt.week_theme || 'Daily Reflection';
+          promptDate = prompt.date;
+
+          logs.push(`✅ Found agent prompt for ${prompt.date}`);
+          SafeLogger.info('Agent prompt found', {
+            date: prompt.date,
+            theme: prompt.week_theme || 'Daily Reflection',
+            promptCount: prompt.prompts.length
+          });
         } else {
           // Find prompt from Notion database
           if (!botConfig.notion_token || !botConfig.notion_database_id) {
@@ -466,8 +479,25 @@ export const appRouter = router({
         }
 
         // Step 5: Send via Telegram
-        if (!promptContent) {
-          throw new Error('No prompt content available');
+        // Final validation: Ensure we have content and required fields
+        if (!promptContent || promptContent.trim() === '') {
+          SafeLogger.error('No prompt content after fetch', { source: botConfig.prompt_source });
+          logs.push('❌ No prompt content available');
+          return {
+            success: false,
+            message: 'Failed to retrieve prompt content',
+            logs,
+          };
+        }
+
+        if (!promptDate) {
+          SafeLogger.error('No prompt date after fetch', { source: botConfig.prompt_source });
+          logs.push('❌ Prompt date missing');
+          return {
+            success: false,
+            message: 'Prompt data is incomplete',
+            logs,
+          };
         }
 
         logs.push('📤 Sending to Telegram...');
