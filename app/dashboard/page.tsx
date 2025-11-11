@@ -240,18 +240,19 @@ export default function DashboardPage() {
           );
         })()}
 
-        {/* Claude Credits */}
+        {/* Generation Credits */}
         <div className="border-2 border-black p-8 mb-8">
           <div className="flex justify-between items-start">
             <div className="flex-1">
-              <h2 className="text-3xl font-display mb-2">CLAUDE CREDITS</h2>
+              <h2 className="text-3xl font-display mb-2">GENERATION CREDITS</h2>
               <p className="text-xl mb-4">
                 <span className="font-display text-5xl">{subscription?.claude_credits || 0}</span>
                 <span className="text-gray-600 ml-3">credits remaining</span>
               </p>
               <div className="text-sm text-gray-600 space-y-1">
-                <p>• DeepSeek R1: <span className="font-display">FREE</span> (Unlimited)</p>
+                <p>• DeepSeek R1: <span className="font-display">FREE</span> (Once per week)</p>
                 <p>• Claude Sonnet 4.5: <span className="font-display">1 CREDIT</span> per generation</p>
+                <p>• Bypass weekly cooldown: <span className="font-display">1 CREDIT</span></p>
                 <p>• Each purchase = 3 credits</p>
               </div>
 
@@ -260,13 +261,13 @@ export default function DashboardPage() {
                 {(subscription?.claude_credits || 0) > 0 ? (
                   <div className="inline-flex items-center gap-2 text-green-700 bg-green-50 border-2 border-green-500 px-4 py-2">
                     <span>✓</span>
-                    <span className="font-display text-sm">You can use Claude for generation</span>
+                    <span className="font-display text-sm">You can use Claude or bypass weekly limits</span>
                   </div>
                 ) : (
                   <div className="inline-flex items-center gap-2 text-blue-700 bg-blue-50 border-2 border-blue-500 px-4 py-2">
                     <span>💡</span>
                     <span className="font-display text-sm">
-                      Use DeepSeek R1 for free, or purchase credits for Claude
+                      Use DeepSeek R1 once per week for free, or purchase credits
                     </span>
                   </div>
                 )}
@@ -473,19 +474,23 @@ export default function DashboardPage() {
       {showUpgrade && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
           <div className="bg-white border-4 border-black p-8 max-w-md">
-            <h2 className="text-3xl font-display mb-4">BUY CLAUDE CREDITS</h2>
+            <h2 className="text-3xl font-display mb-4">BUY GENERATION CREDITS</h2>
 
             <div className="mb-6">
               <div className="border-2 border-black p-6 bg-gray-50">
                 <div className="text-center mb-4">
                   <div className="text-6xl font-display mb-2">3</div>
-                  <div className="text-xl font-display">CLAUDE GENERATIONS</div>
+                  <div className="text-xl font-display">GENERATION CREDITS</div>
                 </div>
 
                 <div className="border-t-2 border-black pt-4 mt-4 space-y-2 text-sm">
                   <div className="flex items-center justify-between">
-                    <span className="text-gray-600">Model:</span>
+                    <span className="text-gray-600">Use for:</span>
                     <span className="font-display">Claude Sonnet 4.5</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-600">Or:</span>
+                    <span className="font-display">Bypass weekly limit</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-gray-600">Per generation:</span>
@@ -499,9 +504,9 @@ export default function DashboardPage() {
               </div>
 
               <div className="mt-4 p-4 border-2 border-blue-500 bg-blue-50">
-                <div className="font-display text-sm mb-1">💡 FREE ALTERNATIVE:</div>
+                <div className="font-display text-sm mb-1">💡 FREE OPTION:</div>
                 <div className="text-sm text-gray-700">
-                  DeepSeek R1 is always free with unlimited generations
+                  DeepSeek R1 is free once per week (no credits needed)
                 </div>
               </div>
             </div>

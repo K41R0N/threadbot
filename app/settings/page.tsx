@@ -541,12 +541,12 @@ export default function SettingsPage() {
               <div className="bg-white border-2 border-red-300 p-6 rounded">
                 <h3 className="font-display text-lg mb-2">PURGE ALL DATA</h3>
                 <p className="text-sm text-gray-700 mb-4">
-                  Remove all your configurations, prompts, and bot data. Your subscription tier and credits will be preserved.
+                  Remove all your configurations, prompts, and bot data. Your generation credits will be preserved.
                 </p>
                 <ul className="text-xs text-gray-600 mb-4 space-y-1 list-disc list-inside">
                   <li>Deletes: Telegram/Notion tokens, bot configurations, generated prompts, themes, context</li>
-                  <li>Keeps: Subscription tier, Claude credits, Stripe billing info</li>
-                  <li>You can start fresh while maintaining your subscription</li>
+                  <li>Keeps: Generation credits, Stripe billing info</li>
+                  <li>You can start fresh while maintaining your credits</li>
                 </ul>
                 <Button
                   type="button"

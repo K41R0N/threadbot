@@ -20,42 +20,94 @@ function isAdmin(userId: string): boolean {
 }
 
 /**
- * Check if user has credits for Claude generation
- * Free tier: Can use DeepSeek unlimited (no credit check)
- * Paid: Each purchase = 3 credits for Claude generations
- * Admins are exempt from credit checks
+ * Check if user can generate prompts based on credits and weekly limits
+ *
+ * CREDITS-ONLY SYSTEM (as of 2025-11-11):
+ * - DeepSeek R1: FREE once per week, OR spend 1 credit to bypass cooldown
+ * - Claude Sonnet 4.5: 1 credit per generation
+ * - Each purchase = 3 generation credits
+ * - Admins: Exempt from all checks
+ *
+ * @param userId - User ID to check
+ * @param useClaude - True if using Claude, false if DeepSeek
+ * @param bypassWeeklyLimit - If true, user wants to spend 1 credit to bypass DeepSeek weekly limit
+ * @returns Object with allowed status, error message if blocked, and credit info
  */
-async function checkCredits(userId: string, useClaude: boolean) {
+async function checkCredits(
+  userId: string,
+  useClaude: boolean,
+  bypassWeeklyLimit: boolean = false
+) {
   // Admins always allowed
   if (isAdmin(userId)) {
-    return { allowed: true };
+    return { allowed: true, bypassedLimit: false };
   }
 
-  // Free tier using DeepSeek: unlimited, no credit check
-  if (!useClaude) {
-    return { allowed: true };
-  }
-
-  // Using Claude: check credits
   const supabase = serverSupabase;
   const { data: subscription } = await supabase
     .from('user_subscriptions')
-    .select('claude_credits')
+    .select('claude_credits, last_free_generation_at')
     .eq('user_id', userId)
     .single();
 
   // @ts-expect-error Supabase v2.80.0 type inference issue
   const credits = subscription?.claude_credits || 0;
+  // @ts-expect-error Supabase v2.80.0 type inference issue
+  const lastFreeGeneration = subscription?.last_free_generation_at;
 
-  if (credits <= 0) {
-    return {
-      allowed: false,
-      error: 'No Claude credits remaining. Purchase more credits to generate with Claude.',
-      needsCredits: true,
-    };
+  // === CLAUDE SONNET 4.5: Always requires 1 credit ===
+  if (useClaude) {
+    if (credits <= 0) {
+      return {
+        allowed: false,
+        error:
+          'No generation credits remaining. Purchase more credits to use Claude Sonnet 4.5.',
+        needsCredits: true,
+        bypassedLimit: false,
+      };
+    }
+    return { allowed: true, credits, bypassedLimit: false };
   }
 
-  return { allowed: true, credits };
+  // === DEEPSEEK R1: Free with weekly cooldown ===
+
+  // If user wants to bypass weekly limit with a credit
+  if (bypassWeeklyLimit) {
+    if (credits <= 0) {
+      return {
+        allowed: false,
+        error:
+          'No generation credits remaining. Purchase credits to bypass the weekly cooldown.',
+        needsCredits: true,
+        bypassedLimit: false,
+      };
+    }
+    // User has credits and wants to spend one to bypass
+    return { allowed: true, credits, bypassedLimit: true };
+  }
+
+  // Check weekly cooldown for free DeepSeek generation
+  if (lastFreeGeneration) {
+    const lastGenDate = new Date(lastFreeGeneration);
+    const now = new Date();
+    const daysSinceLastGen = (now.getTime() - lastGenDate.getTime()) / (1000 * 60 * 60 * 24);
+
+    if (daysSinceLastGen < 7) {
+      // Still within cooldown period
+      const daysRemaining = Math.ceil(7 - daysSinceLastGen);
+      return {
+        allowed: false,
+        error: `Free DeepSeek generation available in ${daysRemaining} day(s). You can spend 1 credit to generate now.`,
+        needsCredits: false,
+        canBypass: true,
+        daysRemaining,
+        bypassedLimit: false,
+      };
+    }
+  }
+
+  // User can generate for free (first time or 7+ days since last generation)
+  return { allowed: true, bypassedLimit: false };
 }
 
 export const agentRouter = router({
@@ -65,7 +117,7 @@ export const agentRouter = router({
 
     const { data, error } = await supabase
       .from('user_subscriptions')
-      .select('claude_credits, tier, current_period_end')
+      .select('claude_credits, tier, current_period_end, last_free_generation_at')
       .eq('user_id', ctx.userId)
       .single();
 
@@ -75,7 +127,12 @@ export const agentRouter = router({
     }
 
     // Default to free tier with 0 credits if no subscription
-    return data || { claude_credits: 0, tier: 'free', current_period_end: null };
+    return data || {
+      claude_credits: 0,
+      tier: 'free',
+      current_period_end: null,
+      last_free_generation_at: null,
+    };
   }),
 
   // Get user's generation context
@@ -300,18 +357,25 @@ export const agentRouter = router({
         startDate: z.string(),
         endDate: z.string(),
         useClaude: z.boolean().default(false),
+        bypassWeeklyLimit: z.boolean().default(false), // If true, spend 1 credit to bypass DeepSeek cooldown
       })
     )
     .mutation(async ({ ctx, input }) => {
       const supabase = serverSupabase;
 
-      // SECURITY: Check if user has credits for Claude generation
-      const creditCheck = await checkCredits(ctx.userId, input.useClaude);
+      // SECURITY: Check if user can generate (credits + weekly limits)
+      const creditCheck = await checkCredits(
+        ctx.userId,
+        input.useClaude,
+        input.bypassWeeklyLimit
+      );
       if (!creditCheck.allowed) {
         return {
           success: false,
           error: creditCheck.error,
           needsCredits: creditCheck.needsCredits,
+          canBypass: creditCheck.canBypass,
+          daysRemaining: creditCheck.daysRemaining,
         };
       }
 
@@ -393,16 +457,47 @@ export const agentRouter = router({
           }))
         );
 
-        // Deduct 1 credit for Claude generations BEFORE marking complete (admins exempt)
-        // This ensures atomicity: if credit deduction fails, job stays incomplete
-        if (input.useClaude && !isAdmin(ctx.userId)) {
-          const { error: creditError } = await supabase
-            // @ts-expect-error Supabase v2.80.0 type inference issue
-            .rpc('decrement_claude_credits', { user_id_param: ctx.userId });
+        // Handle credit deduction and weekly limit tracking (admins exempt)
+        if (!isAdmin(ctx.userId)) {
+          // Case 1: Using Claude Sonnet 4.5 → Always deduct 1 credit
+          // Case 2: Using DeepSeek with bypass → Deduct 1 credit
+          // Case 3: Using DeepSeek without bypass → Update timestamp, no credit deduction
+          const shouldDeductCredit = input.useClaude || input.bypassWeeklyLimit;
 
-          if (creditError) {
-            SafeLogger.error('Credit deduction failed:', creditError);
-            throw new Error('Failed to deduct credit: ' + creditError.message);
+          if (shouldDeductCredit) {
+            const { error: creditError } = await supabase
+              // @ts-expect-error Supabase v2.80.0 type inference issue
+              .rpc('decrement_claude_credits', { user_id_param: ctx.userId });
+
+            if (creditError) {
+              SafeLogger.error('Credit deduction failed:', creditError);
+              throw new Error('Failed to deduct credit: ' + creditError.message);
+            }
+
+            SafeLogger.info('Generation credit deducted', {
+              userId: ctx.userId,
+              useClaude: input.useClaude,
+              bypassedLimit: input.bypassWeeklyLimit,
+            });
+          }
+
+          // Update last free generation timestamp for DeepSeek (including bypassed)
+          if (!input.useClaude) {
+            const { error: timestampError } = await supabase
+              .from('user_subscriptions')
+              // @ts-expect-error Supabase v2.80.0 type inference issue
+              .update({ last_free_generation_at: new Date().toISOString() })
+              .eq('user_id', ctx.userId);
+
+            if (timestampError) {
+              SafeLogger.error('Failed to update generation timestamp:', timestampError);
+              // Don't throw - generation already succeeded, this is just tracking
+            } else {
+              SafeLogger.info('Weekly generation timestamp updated', {
+                userId: ctx.userId,
+                bypassedLimit: input.bypassWeeklyLimit,
+              });
+            }
           }
         }
 
@@ -554,14 +649,14 @@ export const agentRouter = router({
       .eq('user_id', ctx.userId)
       .single();
 
-    // If no subscription row, create one
+    // If no subscription row, create one (tier omitted - deprecated)
     if (!data) {
       await supabase
         .from('user_subscriptions')
         // @ts-expect-error Supabase v2.80.0 type inference issue
         .insert({
           user_id: ctx.userId,
-          tier: 'free',
+          // tier: removed (deprecated 2025-11-11, defaults to 'free')
           claude_credits: 0,
           onboarding_completed: false,
           onboarding_skipped: false,
@@ -594,14 +689,14 @@ export const agentRouter = router({
       throw new Error('Failed to update onboarding status');
     }
 
-    // If no row exists, create it with defaults (first-time user)
+    // If no row exists, create it with defaults (first-time user, tier omitted - deprecated)
     if (!data) {
       const { error: insertError } = await supabase
         .from('user_subscriptions')
         // @ts-expect-error Supabase v2.80.0 type inference issue
         .insert({
           user_id: ctx.userId,
-          tier: 'free',
+          // tier: removed (deprecated 2025-11-11, defaults to 'free')
           claude_credits: 0,
           onboarding_completed: true,
           onboarding_skipped: false,
@@ -619,7 +714,7 @@ export const agentRouter = router({
   skipOnboarding: protectedProcedure.mutation(async ({ ctx }) => {
     const supabase = serverSupabase;
 
-    // SECURITY: Only update onboarding flags - preserve tier and credits
+    // SECURITY: Only update onboarding flags - preserve credits
     // Use update with select to check if row exists
     const { data, error } = await supabase
       .from('user_subscriptions')
@@ -636,14 +731,14 @@ export const agentRouter = router({
       throw new Error('Failed to update onboarding status');
     }
 
-    // If no row exists, create it with defaults (first-time user)
+    // If no row exists, create it with defaults (first-time user, tier omitted - deprecated)
     if (!data) {
       const { error: insertError } = await supabase
         .from('user_subscriptions')
         // @ts-expect-error Supabase v2.80.0 type inference issue
         .insert({
           user_id: ctx.userId,
-          tier: 'free',
+          // tier: removed (deprecated 2025-11-11, defaults to 'free')
           claude_credits: 0,
           onboarding_completed: false,
           onboarding_skipped: true,

@@ -443,8 +443,8 @@ export default function CreateDatabasePage() {
 
                 <button
                   onClick={() => {
-                    if (subscription?.tier === 'free') {
-                      toast.error('Upgrade to Pro to use Claude Sonnet 4.5');
+                    if ((subscription?.claude_credits || 0) === 0) {
+                      toast.error('Purchase generation credits to use Claude Sonnet 4.5');
                     } else {
                       setUseClaude(true);
                     }
@@ -452,23 +452,23 @@ export default function CreateDatabasePage() {
                   className={`border-2 border-black p-6 text-left transition relative ${
                     useClaude ? 'bg-black text-white' : 'bg-white hover:bg-gray-50'
                   }`}
-                  disabled={subscription?.tier === 'free'}
+                  disabled={(subscription?.claude_credits || 0) === 0}
                 >
                   <div className="font-display text-2xl mb-2">CLAUDE SONNET 4.5</div>
                   <div className={`text-sm mb-4 ${useClaude ? 'text-gray-300' : 'text-gray-600'}`}>
                     Best quality, nuanced understanding
                   </div>
-                  <div className="font-display text-xl">PRO ONLY</div>
+                  <div className="font-display text-xl">1 CREDIT</div>
 
-                  {subscription?.tier === 'free' && (
+                  {(subscription?.claude_credits || 0) === 0 && (
                     <div className="absolute inset-0 bg-white/90 flex items-center justify-center">
                       <div className="text-center">
-                        <div className="text-sm text-gray-600 mb-2">Pro Plan Required</div>
+                        <div className="text-sm text-gray-600 mb-2">Credits Required</div>
                         <Button size="sm" onClick={(e) => {
                           e.stopPropagation();
-                          toast.info('Upgrade modal coming soon');
+                          toast.info('Redirect to purchase page coming soon');
                         }}>
-                          UPGRADE →
+                          BUY CREDITS →
                         </Button>
                       </div>
                     </div>
@@ -492,12 +492,12 @@ export default function CreateDatabasePage() {
                 />
               </div>
 
-              {/* Free Tier Info */}
-              {subscription?.tier === 'free' && (
-                <div className="border-2 border-yellow-500 bg-yellow-50 p-4 mb-6">
-                  <div className="font-display text-sm mb-1">⚠️ FREE TIER LIMIT</div>
+              {/* Weekly Cooldown Info */}
+              {!useClaude && (subscription?.claude_credits || 0) > 0 && (
+                <div className="border-2 border-blue-500 bg-blue-50 p-4 mb-6">
+                  <div className="font-display text-sm mb-1">💡 TIP</div>
                   <div className="text-sm text-gray-700">
-                    You can generate 1 database per week. After generation, you can manually edit prompts anytime.
+                    DeepSeek is free once per week. If you've generated recently, spend 1 credit to bypass the cooldown.
                   </div>
                 </div>
               )}
