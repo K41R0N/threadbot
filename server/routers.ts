@@ -235,12 +235,14 @@ export const appRouter = router({
           success,
           message: success ? 'Webhook configured successfully' : 'Failed to configure webhook',
         };
-      } catch (error: any) {
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : String(error);
+
         // Persist webhook error
         const webhookError: Database['public']['Tables']['bot_configs']['Update'] = {
           last_webhook_setup_at: new Date().toISOString(),
           last_webhook_status: 'failed',
-          last_webhook_error: error.message,
+          last_webhook_error: message,
         };
 
         await supabase
@@ -251,7 +253,7 @@ export const appRouter = router({
 
         return {
           success: false,
-          message: error.message,
+          message,
         };
       }
     }),
@@ -522,13 +524,14 @@ export const appRouter = router({
           message: 'Test prompt sent successfully! Check your Telegram.',
           logs,
         };
-      } catch (error: any) {
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : String(error);
         SafeLogger.error('Test prompt failed', { error });
-        logs.push(`❌ Error: ${error.message}`);
+        logs.push(`❌ Error: ${message}`);
 
         return {
           success: false,
-          message: `Failed to send test prompt: ${error.message}`,
+          message: `Failed to send test prompt: ${message}`,
           logs,
         };
       }
@@ -571,11 +574,12 @@ export const appRouter = router({
           success: true,
           message: 'All data has been purged. Your subscription and credits are preserved.',
         };
-      } catch (error: any) {
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : String(error);
         SafeLogger.error('Data purge failed', { userId: ctx.userId, error });
         return {
           success: false,
-          message: `Failed to purge data: ${error.message}`,
+          message: `Failed to purge data: ${message}`,
         };
       }
     }),
@@ -598,6 +602,9 @@ export const appRouter = router({
           'user_subscriptions',
         ];
 
+        const failedTables: string[] = [];
+        const successTables: string[] = [];
+
         for (const table of tables) {
           const { error } = await supabase
             .from(table)
@@ -606,23 +613,39 @@ export const appRouter = router({
 
           if (error) {
             SafeLogger.error(`Failed to delete from ${table}`, { userId: ctx.userId, error });
-            // Continue with other tables even if one fails
+            failedTables.push(table);
           } else {
             SafeLogger.info(`Deleted from ${table}`, { userId: ctx.userId });
+            successTables.push(table);
           }
         }
 
-        SafeLogger.info('Account deletion completed', { userId: ctx.userId });
+        // Report failure if ANY table failed to delete
+        if (failedTables.length > 0) {
+          SafeLogger.error('Account deletion incomplete - some tables failed', {
+            userId: ctx.userId,
+            failedTables,
+            successTables,
+          });
+
+          return {
+            success: false,
+            message: `Account deletion incomplete. Failed to delete from: ${failedTables.join(', ')}. Successfully deleted from: ${successTables.join(', ')}. Please contact support for manual cleanup.`,
+          };
+        }
+
+        SafeLogger.info('Account deletion completed successfully', { userId: ctx.userId });
 
         return {
           success: true,
           message: 'Your account data has been deleted from our database. You can now delete your account from Clerk if desired.',
         };
-      } catch (error: any) {
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : String(error);
         SafeLogger.error('Account deletion failed', { userId: ctx.userId, error });
         return {
           success: false,
-          message: `Failed to delete account: ${error.message}`,
+          message: `Failed to delete account: ${message}`,
         };
       }
     }),
