@@ -66,6 +66,14 @@ export class TelegramService {
 
       const options: WebhookOptions = {};
       if (secretToken) {
+        // VALIDATION: Telegram only allows A-Z, a-z, 0-9, _, - (1-256 chars)
+        // Reference: https://core.telegram.org/bots/api#setwebhook
+        const validTokenPattern = /^[A-Za-z0-9_-]{1,256}$/;
+        if (!validTokenPattern.test(secretToken)) {
+          throw new Error(
+            'Invalid webhook secret token. Must be 1-256 characters and only contain: A-Z, a-z, 0-9, _, -'
+          );
+        }
         options.secret_token = secretToken;
       }
 
