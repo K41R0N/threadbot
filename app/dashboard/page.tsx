@@ -8,6 +8,7 @@ import { trpc } from '@/lib/trpc';
 import { toast } from 'sonner';
 import { AuthenticatedLayout } from '@/components/layout/authenticated-layout';
 import { UnifiedOnboardingModal } from '@/components/UnifiedOnboardingModal';
+import { UpcomingPrompts } from '@/components/dashboard/upcoming-prompts';
 import type { UserPrompt } from '@/lib/supabase-agent';
 import type { BotConfig } from '@/lib/supabase';
 
@@ -232,125 +233,140 @@ export default function DashboardPage() {
 
   return (
     <AuthenticatedLayout currentPage="dashboard">
-      <div className="container mx-auto px-4 py-12 max-w-6xl">
-        {/* Bot Status Card - only show if Telegram/Notion is configured */}
-        {botConfig && (() => {
+      <div className="container mx-auto px-4 sm:px-6 py-6 sm:py-8 md:py-12 max-w-6xl">
+        {/* Upcoming Prompts - Show first if prompts exist and bot is configured */}
+        {allPrompts && (allPrompts as UserPrompt[]).length > 0 && botConfig && (
+          <UpcomingPrompts 
+            prompts={allPrompts as UserPrompt[]} 
+            botConfig={botConfig}
+          />
+        )}
+
+        {/* Quick Stats Row - Mobile optimized */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 mb-6 sm:mb-8">
+          {/* Bot Status Card - only show if Telegram/Notion is configured */}
+          {botConfig && (() => {
           const cfg = botConfig as BotConfig;
           return (
-            <div className="border-2 border-black p-8 mb-8">
-              <div className="flex justify-between items-start mb-6">
-                <div>
-                  <h2 className="text-3xl font-display mb-2">BOT STATUS</h2>
-                  <div className="flex items-center gap-3">
-                    <div className={`w-4 h-4 rounded-full ${cfg.is_active ? 'bg-green-500' : 'bg-gray-300'}`} />
-                    <span className="font-display text-xl">
-                      {cfg.is_active ? 'ACTIVE' : 'INACTIVE'}
-                    </span>
-                  </div>
-                  <div className="mt-2 text-sm text-gray-600">
-                    Prompt Source: <span className="font-display uppercase">{cfg.prompt_source === 'agent' ? '🤖 AI Agent' : '📝 Notion'}</span>
-                  </div>
+            <div className="border-2 border-black p-4 sm:p-6">
+              <div className="mb-4">
+                <h2 className="text-xl sm:text-2xl font-display mb-3">BOT STATUS</h2>
+                <div className="flex items-center gap-3 mb-2">
+                  <div className={`w-3 h-3 sm:w-4 sm:h-4 rounded-full ${cfg.is_active ? 'bg-green-500' : 'bg-gray-300'}`} />
+                  <span className="font-display text-lg sm:text-xl">
+                    {cfg.is_active ? 'ACTIVE' : 'INACTIVE'}
+                  </span>
+                </div>
+                <div className="text-xs sm:text-sm text-gray-600">
+                  Prompt Source: <span className="font-display uppercase">{cfg.prompt_source === 'agent' ? '🤖 AI Agent' : '📝 Notion'}</span>
+                </div>
 
-                  {/* Webhook Health Status */}
-                  {cfg.last_webhook_setup_at && (
-                    <div className="mt-3 border-t border-gray-200 pt-3">
-                      <div className="text-xs text-gray-500 mb-1">
-                        Webhook Status
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {cfg.last_webhook_status === 'success' ? (
-                          <>
-                            <div className="w-2 h-2 bg-green-500 rounded-full" />
-                            <span className="text-sm text-green-700 font-display">CONNECTED</span>
-                          </>
-                        ) : (
-                          <>
-                            <div className="w-2 h-2 bg-red-500 rounded-full" />
-                            <span className="text-sm text-red-700 font-display">FAILED</span>
-                          </>
-                        )}
-                        <span className="text-xs text-gray-500">
-                          • Last checked: {new Date(cfg.last_webhook_setup_at).toLocaleString()}
-                        </span>
-                      </div>
-                      {cfg.last_webhook_error && (
-                        <div className="mt-2 text-xs text-red-600 bg-red-50 p-2 rounded border border-red-200">
-                          Error: {cfg.last_webhook_error}
-                        </div>
-                      )}
+                {/* Webhook Health Status */}
+                {cfg.last_webhook_setup_at && (
+                  <div className="mt-3 border-t border-gray-200 pt-3">
+                    <div className="text-xs text-gray-500 mb-1">
+                      Webhook Status
                     </div>
-                  )}
-                </div>
-                <div className="flex gap-3">
-                  <Button
-                    onClick={toggleBot}
-                    variant={cfg.is_active ? 'outline' : 'default'}
-                    disabled={updateConfig.isPending}
-                  >
-                    {cfg.is_active ? 'DEACTIVATE' : 'ACTIVATE'}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => router.push('/settings')}
-                  >
-                    CONFIGURE BOT
-                  </Button>
-                </div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {cfg.last_webhook_status === 'success' ? (
+                        <>
+                          <div className="w-2 h-2 bg-green-500 rounded-full" />
+                          <span className="text-xs sm:text-sm text-green-700 font-display">CONNECTED</span>
+                        </>
+                      ) : (
+                        <>
+                          <div className="w-2 h-2 bg-red-500 rounded-full" />
+                          <span className="text-xs sm:text-sm text-red-700 font-display">FAILED</span>
+                        </>
+                      )}
+                      <span className="text-xs text-gray-500">
+                        • Last checked: {new Date(cfg.last_webhook_setup_at).toLocaleString()}
+                      </span>
+                    </div>
+                    {cfg.last_webhook_error && (
+                      <div className="mt-2 text-xs text-red-600 bg-red-50 p-2 rounded border border-red-200">
+                        Error: {cfg.last_webhook_error}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+              <div className="flex flex-col sm:flex-row gap-2 mt-4">
+                <Button
+                  onClick={toggleBot}
+                  variant={cfg.is_active ? 'outline' : 'default'}
+                  disabled={updateConfig.isPending}
+                  className="text-xs sm:text-sm flex-1 sm:flex-none"
+                >
+                  {cfg.is_active ? 'DEACTIVATE' : 'ACTIVATE'}
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => router.push('/settings')}
+                  className="text-xs sm:text-sm flex-1 sm:flex-none"
+                >
+                  SETTINGS
+                </Button>
               </div>
             </div>
           );
         })()}
 
-        {/* Generation Credits */}
-        <div className="border-2 border-black p-8 mb-8">
-          <div className="flex justify-between items-start">
-            <div className="flex-1">
-              <h2 className="text-3xl font-display mb-2">GENERATION CREDITS</h2>
-              <p className="text-xl mb-4">
-                <span className="font-display text-5xl">{subscription?.claude_credits || 0}</span>
-                <span className="text-gray-600 ml-3">credits remaining</span>
-              </p>
-              <div className="text-sm text-gray-600 space-y-1">
-                <p>• DeepSeek R1: <span className="font-display">FREE</span> (Once per week)</p>
-                <p>• Claude Sonnet 4.5: <span className="font-display">1 CREDIT</span> per generation</p>
-                <p>• Bypass weekly cooldown: <span className="font-display">1 CREDIT</span></p>
-                <p>• Each purchase = 3 credits</p>
+          {/* Generation Credits */}
+          <div className="border-2 border-black p-4 sm:p-6">
+            <div className="flex flex-col gap-4">
+              <div>
+                <h2 className="text-xl sm:text-2xl font-display mb-2">CREDITS</h2>
+                <p className="text-lg sm:text-xl mb-3">
+                  <span className="font-display text-3xl sm:text-4xl">{subscription?.claude_credits || 0}</span>
+                  <span className="text-gray-600 ml-2 text-xs sm:text-sm">remaining</span>
+                </p>
+                <div className="text-xs sm:text-sm text-gray-600 space-y-1">
+                  <p>• DeepSeek R1: <span className="font-display">FREE</span> (Once per week)</p>
+                  <p>• Claude: <span className="font-display">1 CREDIT</span> per generation</p>
+                </div>
               </div>
 
               {/* Credit Status */}
-              <div className="mt-4">
+              <div>
                 {(subscription?.claude_credits || 0) > 0 ? (
-                  <div className="inline-flex items-center gap-2 text-green-700 bg-green-50 border-2 border-green-500 px-4 py-2">
+                  <div className="inline-flex items-center gap-2 text-green-700 bg-green-50 border-2 border-green-500 px-3 py-1.5 text-xs">
                     <span>✓</span>
-                    <span className="font-display text-sm">You can use Claude or bypass weekly limits</span>
+                    <span className="font-display">Claude available</span>
                   </div>
                 ) : (
-                  <div className="inline-flex items-center gap-2 text-blue-700 bg-blue-50 border-2 border-blue-500 px-4 py-2">
+                  <div className="inline-flex items-center gap-2 text-blue-700 bg-blue-50 border-2 border-blue-500 px-3 py-1.5 text-xs">
                     <span>💡</span>
-                    <span className="font-display text-sm">
-                      Use DeepSeek R1 once per week for free, or purchase credits
-                    </span>
+                    <span className="font-display">Free DeepSeek available</span>
                   </div>
                 )}
               </div>
-            </div>
 
-            <Button onClick={() => setShowUpgrade(true)}>
-              BUY CREDITS
-            </Button>
+              <Button 
+                onClick={() => setShowUpgrade(true)}
+                className="text-xs sm:text-sm w-full"
+                size="sm"
+              >
+                BUY CREDITS
+              </Button>
+            </div>
           </div>
         </div>
 
         {/* Databases Section */}
-        <div className="border-2 border-black p-8">
-          <div className="flex justify-between items-center mb-6">
+        <div className="border-2 border-black p-4 sm:p-6 md:p-8">
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 sm:gap-0 mb-4 sm:mb-6">
             <div>
-              <h2 className="text-3xl font-display">YOUR DATABASES</h2>
-              <p className="text-sm text-gray-600 mt-1">
+              <h2 className="text-xl sm:text-2xl md:text-3xl font-display">YOUR DATABASES</h2>
+              <p className="text-xs sm:text-sm text-gray-600 mt-1">
                 Manage your AI-generated and Notion prompt calendars
               </p>
             </div>
-            <Button onClick={handleCreateNew}>
+            <Button 
+              onClick={handleCreateNew}
+              className="text-xs sm:text-sm w-full sm:w-auto"
+              size="sm"
+            >
               + CREATE AI DATABASE
             </Button>
           </div>
@@ -387,36 +403,36 @@ export default function DashboardPage() {
               {/* Notion Database */}
               {hasNotionDatabase && (
                 <div
-                  className="border-2 border-black p-6 hover:bg-gray-50 cursor-pointer transition"
+                  className="border-2 border-black p-4 sm:p-6 hover:bg-gray-50 cursor-pointer transition"
                   onClick={() => {
                     toast.info('Notion database view coming soon!');
                   }}
                 >
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
-                        <span className="text-2xl">📝</span>
-                        <h3 className="font-display text-2xl">NOTION DATABASE</h3>
-                        <span className="px-3 py-1 bg-purple-100 text-purple-800 text-xs font-display">NOTION</span>
+                  <div className="flex justify-between items-start gap-4">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 sm:gap-3 mb-2 flex-wrap">
+                        <span className="text-xl sm:text-2xl">📝</span>
+                        <h3 className="font-display text-lg sm:text-xl md:text-2xl">NOTION DATABASE</h3>
+                        <span className="px-2 sm:px-3 py-1 bg-purple-100 text-purple-800 text-xs font-display">NOTION</span>
                         {getStatusBadge(isNotionActive ? 'active' : (isNotionConnected ? 'connected' : 'inactive'))}
                       </div>
-                      <div className="flex items-center gap-4 text-sm text-gray-600">
+                      <div className="flex items-center gap-2 sm:gap-4 text-xs sm:text-sm text-gray-600 flex-wrap">
                         <span>Connected to your Notion workspace</span>
-                        <span>•</span>
-                        <span>Database ID: {botCfg?.notion_database_id?.slice(0, 8)}...</span>
+                        <span className="hidden sm:inline">•</span>
+                        <span className="text-xs">Database ID: {botCfg?.notion_database_id?.slice(0, 8)}...</span>
                       </div>
                       {isNotionActive && (
-                        <div className="mt-2 text-sm text-green-700">
+                        <div className="mt-2 text-xs sm:text-sm text-green-700">
                           ✓ Connected to Telegram bot and active
                         </div>
                       )}
                       {isNotionConnected && !isNotionActive && (
-                        <div className="mt-2 text-sm text-blue-700">
+                        <div className="mt-2 text-xs sm:text-sm text-blue-700">
                           Connected to bot (activate in Settings)
                         </div>
                       )}
                     </div>
-                    <div className="text-4xl">→</div>
+                    <div className="text-2xl sm:text-4xl flex-shrink-0">→</div>
                   </div>
                 </div>
               )}
@@ -428,42 +444,42 @@ export default function DashboardPage() {
                 return (
                   <div
                     key={`${db.startDate}-${db.endDate}`}
-                    className="border-2 border-black p-6 hover:bg-gray-50 cursor-pointer transition"
+                    className="border-2 border-black p-4 sm:p-6 hover:bg-gray-50 cursor-pointer transition"
                     onClick={() => router.push(`/agent/database/range/${db.startDate}/${db.endDate}`)}
                   >
-                    <div className="flex justify-between items-start">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-2">
-                          <span className="text-2xl">🤖</span>
-                          <h3 className="font-display text-2xl">{db.name}</h3>
-                          <span className="px-3 py-1 bg-blue-100 text-blue-800 text-xs font-display">AI AGENT</span>
+                    <div className="flex justify-between items-start gap-4">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 sm:gap-3 mb-2 flex-wrap">
+                          <span className="text-xl sm:text-2xl">🤖</span>
+                          <h3 className="font-display text-lg sm:text-xl md:text-2xl">{db.name}</h3>
+                          <span className="px-2 sm:px-3 py-1 bg-blue-100 text-blue-800 text-xs font-display">AI AGENT</span>
                           {getStatusBadge(db.status)}
                         </div>
 
-                        <div className="flex items-center gap-4 text-sm text-gray-600 mb-2">
+                        <div className="flex items-center gap-2 sm:gap-4 text-xs sm:text-sm text-gray-600 mb-2 flex-wrap">
                           <span>{totalPrompts} prompts</span>
-                          <span>•</span>
+                          <span className="hidden sm:inline">•</span>
                           <span>{db.morningCount} morning</span>
-                          <span>•</span>
+                          <span className="hidden sm:inline">•</span>
                           <span>{db.eveningCount} evening</span>
-                          <span>•</span>
-                          <span>
+                          <span className="hidden sm:inline">•</span>
+                          <span className="text-xs">
                             {new Date(db.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - {new Date(db.endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                           </span>
                         </div>
 
                         {db.status === 'active' && (
-                          <div className="mt-2 text-sm text-green-700">
+                          <div className="mt-2 text-xs sm:text-sm text-green-700">
                             ✓ Connected to Telegram bot and active
                           </div>
                         )}
                         {db.status === 'connected' && (
-                          <div className="mt-2 text-sm text-blue-700">
+                          <div className="mt-2 text-xs sm:text-sm text-blue-700">
                             Connected to bot (activate in Settings)
                           </div>
                         )}
                       </div>
-                      <div className="text-4xl">→</div>
+                      <div className="text-2xl sm:text-4xl flex-shrink-0">→</div>
                     </div>
                   </div>
                 );

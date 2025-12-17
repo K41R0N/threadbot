@@ -309,7 +309,7 @@ export const appRouter = router({
       }
     }),
 
-    // Send test prompt
+    // Send test prompt (today's prompt)
     testPrompt: protectedProcedure
       .input(z.object({
         type: z.enum(['morning', 'evening']),
@@ -331,6 +331,39 @@ export const appRouter = router({
         }
 
         return await BotService.sendScheduledPrompt(config, input.type);
+      }),
+
+    // Send a specific prompt by date (for early/manual sending)
+    sendPromptByDate: protectedProcedure
+      .input(z.object({
+        date: z.string(), // ISO date string (YYYY-MM-DD)
+        type: z.enum(['morning', 'evening']),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const supabase = serverSupabase;
+
+        const { data, error } = await supabase
+          .from('bot_configs')
+          .select('*')
+          .eq('user_id', ctx.userId)
+          .single();
+
+        if (error || !data) {
+          return {
+            success: false,
+            message: 'Bot configuration not found',
+          };
+        }
+
+        const config = data as BotConfig;
+        if (!config.telegram_chat_id) {
+          return {
+            success: false,
+            message: 'Telegram not connected. Please connect Telegram in Settings.',
+          };
+        }
+
+        return await BotService.sendPromptByDate(config, input.date, input.type);
       }),
 
     // Test Telegram prompt sending with detailed logging

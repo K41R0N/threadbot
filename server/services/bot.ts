@@ -168,6 +168,147 @@ export class BotService {
   }
 
   /**
+   * Send a specific prompt by date (for manual/early sending)
+   * Supports both Notion and Agent sources
+   */
+  static async sendPromptByDate(
+    config: BotConfig,
+    date: string, // ISO date string (YYYY-MM-DD)
+    type: 'morning' | 'evening'
+  ): Promise<{ success: boolean; message?: string; pageId?: string }> {
+    try {
+      // Use shared bot token from environment (no longer per-user)
+      const telegram = new TelegramService();
+
+      // Format date for display
+      const promptDate = new Date(date);
+      const formattedDate = format(promptDate, 'EEEE yyyy-MM-dd');
+
+      let content: string;
+      let topicProperty: string;
+      let pageId: string | undefined;
+
+      // Determine greeting and emoji based on type
+      const greeting = type === 'morning' ? 'Good morning!' : 'Good afternoon!';
+      const emoji = type === 'morning' ? '🌅' : '🌆';
+      const promptLabel = type === 'morning' ? 'Morning' : 'Evening';
+
+      // Fetch prompt from appropriate source
+      if (config.prompt_source === 'agent') {
+        // Fetch from agent database
+        const supabase = serverSupabase;
+        const { data: prompt } = await supabase
+          .from('user_prompts')
+          .select('*')
+          .eq('user_id', config.user_id)
+          .eq('date', date)
+          .eq('post_type', type)
+          .single();
+
+        // @ts-expect-error Supabase v2.80.0 type inference issue
+        if (!prompt || !prompt.prompts || prompt.prompts.length === 0) {
+          return {
+            success: false,
+            message: `No ${type} prompt found for ${date}`,
+          };
+        }
+
+        // Format prompts as numbered list
+        // @ts-expect-error Supabase v2.80.0 type inference issue
+        content = prompt.prompts
+          .map((p: string, i: number) => `${i + 1}. ${p}`)
+          .join('\n');
+        // @ts-expect-error Supabase v2.80.0 type inference issue
+        topicProperty = prompt.week_theme;
+        // @ts-expect-error Supabase v2.80.0 type inference issue
+        pageId = prompt.id;
+      } else {
+        // Fetch from Notion (existing logic)
+        if (!config.notion_token || !config.notion_database_id) {
+          return {
+            success: false,
+            message: 'Notion token or database ID not configured',
+          };
+        }
+
+        const notion = new NotionService(config.notion_token);
+
+        const page = await notion.queryDatabase(
+          config.notion_database_id,
+          date,
+          type
+        );
+
+        if (!page) {
+          return {
+            success: false,
+            message: `No ${type} prompt found for ${date}`,
+          };
+        }
+
+        content = await notion.getPageContent(page.id);
+
+        if (!content) {
+          return {
+            success: false,
+            message: 'Prompt page is empty',
+          };
+        }
+
+        // Extract page properties
+        const pageProps = page.properties as any;
+        topicProperty =
+          pageProps.Topic?.rich_text?.[0]?.plain_text ||
+          pageProps.Week?.rich_text?.[0]?.plain_text ||
+          pageProps.Name?.title?.[0]?.plain_text ||
+          'Daily Prompt';
+        pageId = page.id;
+      }
+
+      // SECURITY: Escape Markdown in user-generated content
+      const escapedTopic = TelegramService.escapeMarkdown(topicProperty);
+      const escapedContent = TelegramService.escapeMarkdown(content);
+      const escapedDate = TelegramService.escapeMarkdown(formattedDate);
+      const escapedGreeting = TelegramService.escapeMarkdown(greeting);
+      const escapedPromptLabel = TelegramService.escapeMarkdown(promptLabel);
+
+      // Format message with requested structure
+      const replyText = config.prompt_source === 'agent'
+        ? 'Reply to this message to log your response.'
+        : 'Reply to this message to log your response to Notion.';
+      const escapedReplyText = TelegramService.escapeMarkdown(replyText);
+
+      const message = `${escapedGreeting}\n\n${emoji} ${escapedDate} \\- ${escapedPromptLabel}\n🎯 ${escapedTopic}\n\n${escapedContent}\n\n💬 ${escapedReplyText}`;
+
+      await telegram.sendMessage(config.telegram_chat_id, message);
+
+      // Update bot state
+      const supabase = serverSupabase;
+      await supabase
+        .from('bot_state')
+        // @ts-expect-error Supabase v2.80.0 type inference issue
+        .upsert({
+          user_id: config.user_id,
+          last_prompt_type: type,
+          last_prompt_sent_at: new Date().toISOString(),
+          last_prompt_page_id: pageId || null,
+        });
+
+      return {
+        success: true,
+        message: 'Prompt sent successfully',
+        pageId,
+      };
+    } catch (error: any) {
+      SafeLogger.error('Send prompt by date error:', error);
+      return {
+        success: false,
+        message: error.message,
+      };
+    }
+  }
+
+  /**
    * Handle reply from Telegram and log to Notion or Agent database
    * Supports both Notion and Agent sources
    */
