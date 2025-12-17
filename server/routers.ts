@@ -242,7 +242,10 @@ export const appRouter = router({
         };
       }
 
-      if (!config.telegram_chat_id) {
+      // Type assertion for Supabase query result
+      const configData = config as { telegram_chat_id: string | null; user_id: string } | null;
+
+      if (!configData || !configData.telegram_chat_id) {
         return {
           success: false,
           message: 'Telegram chat ID not configured. Please set your chat ID first.',
@@ -825,9 +828,16 @@ export const appRouter = router({
           throw new Error('Failed to generate verification code');
         }
 
+        // Type assertion for Supabase query result
+        const codeData = data as { code: string; expires_at: string } | null;
+
+        if (!codeData) {
+          throw new Error('Failed to generate verification code');
+        }
+
         return {
-          code: data.code as string,
-          expiresAt: data.expires_at as string,
+          code: codeData.code,
+          expiresAt: codeData.expires_at,
         };
       }),
 
@@ -841,9 +851,12 @@ export const appRouter = router({
         .eq('user_id', ctx.userId)
         .single();
 
+      // Type assertion for Supabase query result
+      const configData = config as { telegram_chat_id: string | null } | null;
+
       return {
-        linked: !!config?.telegram_chat_id,
-        chatId: config?.telegram_chat_id || null,
+        linked: !!configData?.telegram_chat_id,
+        chatId: configData?.telegram_chat_id || null,
       };
     }),
   }),
