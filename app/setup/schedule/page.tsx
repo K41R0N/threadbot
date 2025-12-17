@@ -6,6 +6,7 @@ import { useUser } from '@clerk/nextjs';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { trpc } from '@/lib/trpc';
+import { useLocalStoragePersistence } from '@/lib/hooks/use-local-storage-persistence';
 
 import { toast } from 'sonner';
 
@@ -30,6 +31,22 @@ export default function SetupSchedulePage() {
   const [eveningTime, setEveningTime] = useState('18:00');
   const [timezone, setTimezone] = useState('UTC');
 
+  // Persist form state to localStorage
+  const { clear: clearPersistence } = useLocalStoragePersistence(
+    'threadbot:setup:schedule',
+    { morningTime, eveningTime, timezone },
+    {
+      onRestore: (restored) => {
+        if (restored.morningTime) setMorningTime(restored.morningTime);
+        if (restored.eveningTime) setEveningTime(restored.eveningTime);
+        if (restored.timezone) setTimezone(restored.timezone);
+        if (restored.morningTime || restored.eveningTime || restored.timezone) {
+          toast.info('Your previous schedule settings have been restored');
+        }
+      },
+    }
+  );
+
   const { data: config, isLoading: configLoading } = trpc.bot.getConfig.useQuery(undefined, {
     enabled: isSignedIn,
   });
@@ -38,6 +55,8 @@ export default function SetupSchedulePage() {
 
   const updateConfig = trpc.bot.updateConfig.useMutation({
     onSuccess: async () => {
+      // Clear persisted data on successful activation
+      clearPersistence();
       // SECURITY: Set up webhook server-side (token never sent to client)
       try {
         const result = await setupWebhookForUser.mutateAsync();

@@ -10,16 +10,22 @@ export const maxDuration = 30;
 export async function GET(request: NextRequest) {
   try {
     // SECURITY: Verify request is from Vercel Cron
-    // Vercel Cron automatically sends x-vercel-cron header with value "1"
-    // This header can only be set by Vercel, making it secure
-    const vercelCronHeader = request.headers.get('x-vercel-cron');
+    // Vercel Cron sends x-vercel-cron header with value "1" OR has user-agent "vercel-cron/1.0"
+    // Check header case-insensitively as some proxies may modify header casing
+    const vercelCronHeader = request.headers.get('x-vercel-cron') || 
+                              request.headers.get('X-Vercel-Cron') ||
+                              request.headers.get('X-VERCEL-CRON');
+    const userAgent = request.headers.get('user-agent') || '';
     const searchParams = request.nextUrl.searchParams;
     const providedSecret = searchParams.get('secret');
     const cronSecret = process.env.CRON_SECRET;
 
-    // Primary check: Verify request is from Vercel Cron (has x-vercel-cron header)
-    // Secondary check: If secret is provided in URL, verify it matches (for manual testing)
-    const isVercelCron = vercelCronHeader === '1';
+    // Check if request is from Vercel Cron:
+    // 1. Has x-vercel-cron header with value "1"
+    // 2. OR has user-agent "vercel-cron/1.0" (fallback for cases where header might not be present)
+    const isVercelCronHeader = vercelCronHeader === '1';
+    const isVercelCronUserAgent = userAgent.includes('vercel-cron');
+    const isVercelCron = isVercelCronHeader || isVercelCronUserAgent;
     
     // If secret is provided, it must match CRON_SECRET
     // If CRON_SECRET is not configured, deny access unless it's from Vercel Cron
@@ -36,9 +42,10 @@ export async function GET(request: NextRequest) {
     if (!isVercelCron && !secretMatches) {
       SafeLogger.warn('Unauthorized cron request attempt', {
         ip: request.headers.get('x-forwarded-for'),
-        userAgent: request.headers.get('user-agent'),
+        userAgent,
         hasVercelCronHeader: !!vercelCronHeader,
         vercelCronHeader,
+        isVercelCronUserAgent,
         hasSecret: !!providedSecret,
         secretMatches,
       });

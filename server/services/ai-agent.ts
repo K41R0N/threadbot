@@ -12,13 +12,25 @@ import { z } from 'zod';
 import { SafeLogger } from '@/lib/logger';
 
 // SECURITY: API keys from environment variables (server-side only)
-const anthropic = createAnthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY!,
-});
+// Validate API keys exist before creating clients
+const anthropicApiKey = process.env.ANTHROPIC_API_KEY;
+const deepseekApiKey = process.env.DEEPSEEK_API_KEY;
 
-const deepseek = createDeepSeek({
-  apiKey: process.env.DEEPSEEK_API_KEY!,
-});
+if (!anthropicApiKey) {
+  SafeLogger.warn('ANTHROPIC_API_KEY is not set. Claude features will not work.');
+}
+
+if (!deepseekApiKey) {
+  SafeLogger.warn('DEEPSEEK_API_KEY is not set. DeepSeek features will not work.');
+}
+
+const anthropic = anthropicApiKey ? createAnthropic({
+  apiKey: anthropicApiKey,
+}) : null;
+
+const deepseek = deepseekApiKey ? createDeepSeek({
+  apiKey: deepseekApiKey,
+}) : null;
 
 // Schemas for structured outputs
 const ThemeSchema = z.object({
@@ -77,6 +89,11 @@ export class AIAgentService {
     additionalContext?: string
   ): Promise<ContextAnalysis> {
     try {
+      // Validate DeepSeek API key exists
+      if (!deepseek) {
+        throw new Error('DEEPSEEK_API_KEY is not configured. Please set it in your environment variables.');
+      }
+
       const { text } = await generateText({
         model: deepseek('deepseek-reasoner'), // R1 model
         prompt: `Analyze the following content sources and extract:
@@ -126,9 +143,17 @@ Return your analysis in this exact JSON format:
     useClaude: boolean = false
   ): Promise<WeeklyTheme[]> {
     try {
+      // Validate API key exists before using model
+      if (useClaude && !anthropic) {
+        throw new Error('ANTHROPIC_API_KEY is not configured. Please set it in your environment variables.');
+      }
+      if (!useClaude && !deepseek) {
+        throw new Error('DEEPSEEK_API_KEY is not configured. Please set it in your environment variables.');
+      }
+
       const model = useClaude
-        ? anthropic('claude-sonnet-4-20250514')
-        : deepseek('deepseek-chat');
+        ? anthropic!('claude-sonnet-4-20250514')
+        : deepseek!('deepseek-chat');
 
       const { object } = await generateObject({
         model,
@@ -181,9 +206,17 @@ Return 4 weekly themes that follow this narrative arc but are customized to the 
     useClaude: boolean = false
   ): Promise<DailyPrompt> {
     try {
+      // Validate API key exists before using model
+      if (useClaude && !anthropic) {
+        throw new Error('ANTHROPIC_API_KEY is not configured. Please set it in your environment variables.');
+      }
+      if (!useClaude && !deepseek) {
+        throw new Error('DEEPSEEK_API_KEY is not configured. Please set it in your environment variables.');
+      }
+
       const model = useClaude
-        ? anthropic('claude-sonnet-4-20250514')
-        : deepseek('deepseek-chat');
+        ? anthropic!('claude-sonnet-4-20250514')
+        : deepseek!('deepseek-chat');
 
       const timeOfDay = postType === 'morning' ? 'morning reflection' : 'evening reflection';
       const formattedDate = new Date(date).toLocaleDateString('en-US', {

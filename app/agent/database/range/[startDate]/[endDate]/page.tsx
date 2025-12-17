@@ -45,10 +45,11 @@ export default function DatabaseRangePage({
     onSuccess: (data) => {
       setVerificationCode(data.code);
       setIsWaiting(true);
-      toast.success('Verification code generated!');
+      toast.success('Verification code generated! Say "hello" to the bot on Telegram.');
     },
     onError: (error) => {
       toast.error(`Failed to generate code: ${error.message}`);
+      console.error('Verification code generation error:', error);
     },
   });
 
@@ -77,7 +78,9 @@ export default function DatabaseRangePage({
   }, [linkStatus, router]);
 
   const handleOpenTelegram = () => {
-    generateCode.mutate();
+    // Auto-detect timezone from browser
+    const detectedTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    generateCode.mutate({ timezone: detectedTimezone });
     const telegramUrl = `https://t.me/${BOT_USERNAME}`;
     window.open(telegramUrl, '_blank');
   };
@@ -101,22 +104,66 @@ export default function DatabaseRangePage({
   });
 
   const updatePrompt = trpc.agent.updatePrompt.useMutation({
-    onSuccess: (_, variables) => {
+    onMutate: async (variables) => {
+      // Capture state BEFORE mutation starts to detect race conditions
+      // This runs synchronously before the mutation, so selectedDate is captured at call time
+      return {
+        selectedDateAtMutation: selectedDate,
+        selectedPromptsAtMutation: selectedPrompts,
+        deletedPromptIdsAtMutation: new Set(deletedPromptIds), // Capture snapshot of deleted IDs
+      };
+    },
+    onSuccess: async (_, variables, context) => {
       toast.success('Prompt updated!');
       
-      // Update selectedPrompts state to reflect the changes
+      // Use captured state from onMutate to avoid race conditions
+      const selectedDateAtMutation = context?.selectedDateAtMutation;
+      const deletedPromptIdsAtMutation = context?.deletedPromptIdsAtMutation;
+      const updatedPromptId = variables.id;
+      
+      // Optimistically update selectedPrompts for immediate UI feedback
       // Only update if prompts were provided in the mutation
-      if (variables.prompts) {
-        const updatedPrompts = selectedPrompts.map(p => 
-          p.id === variables.id 
+      if (variables.prompts && context?.selectedPromptsAtMutation) {
+        const updatedPrompts = context.selectedPromptsAtMutation.map(p => 
+          p.id === updatedPromptId 
             ? { ...p, prompts: variables.prompts! }
             : p
         );
         setSelectedPrompts(updatedPrompts);
       }
       
-      // Refetch to sync with server (handles status updates and ensures consistency)
-      refetch();
+      // Refetch to sync with server and update selectedPrompts with server data
+      // Handle both return types: QueryObserverResult with .data or data directly
+      const refetchResult = await refetch();
+      // Check if result has .data property (QueryObserverResult) or is data directly
+      const refetchedPrompts = (refetchResult && typeof refetchResult === 'object' && 'data' in refetchResult)
+        ? (refetchResult as { data?: UserPrompt[] }).data
+        : (refetchResult as UserPrompt[] | undefined);
+      
+      // Only sync if:
+      // 1. The selected date hasn't changed since mutation started (avoid race conditions)
+      // 2. The refetched data contains the updated prompt (verify it was saved)
+      // 3. We have refetched data
+      if (selectedDateAtMutation && refetchedPrompts && selectedDate === selectedDateAtMutation) {
+        // Use captured deletedPromptIds from mutation start to avoid race conditions
+        const deletedIdsAtMutation = deletedPromptIdsAtMutation || new Set<string>();
+        const datePrompts = (refetchedPrompts as UserPrompt[]).filter(
+          p => p.date === selectedDateAtMutation && !deletedIdsAtMutation.has(p.id)
+        );
+        
+        // Verify the updated prompt exists in refetched data
+        const updatedPromptExists = datePrompts.some(p => p.id === updatedPromptId);
+        
+        if (updatedPromptExists) {
+          // Server data is valid - sync it
+          setSelectedPrompts(datePrompts);
+        } else if (datePrompts.length > 0) {
+          // Updated prompt not found but other prompts exist - sync anyway
+          // (might have been deleted or moved, but keep panel in sync)
+          setSelectedPrompts(datePrompts);
+        }
+        // If datePrompts.length === 0, keep optimistic state (prompt might have been deleted)
+      }
     },
     onError: (error) => {
       toast.error(error.message);
@@ -402,9 +449,20 @@ export default function DatabaseRangePage({
             
             {!verificationCode ? (
               <>
-                <p className="text-gray-600 mb-6">
+                <p className="text-gray-600 mb-4">
                   Connect your Telegram account to start receiving your daily prompts automatically!
                 </p>
+                <div className="bg-gray-50 border-2 border-gray-200 p-4 mb-6 rounded">
+                  <p className="text-sm text-gray-700 mb-2">
+                    <strong>How it works:</strong>
+                  </p>
+                  <ol className="list-decimal list-inside text-sm text-gray-600 space-y-1">
+                    <li>Click the button below to open Telegram</li>
+                    <li>Start a chat with <strong>@{BOT_USERNAME}</strong></li>
+                    <li>Send "hello" or your verification code</li>
+                    <li>Your account will be linked automatically!</li>
+                  </ol>
+                </div>
                 <div className="space-y-4">
                   <Button
                     onClick={handleOpenTelegram}
@@ -412,7 +470,7 @@ export default function DatabaseRangePage({
                     size="lg"
                     className="w-full"
                   >
-                    {generateCode.isPending ? 'GENERATING CODE...' : '📱 OPEN TELEGRAM'}
+                    {generateCode.isPending ? 'GENERATING CODE...' : '📱 OPEN TELEGRAM & GENERATE CODE'}
                   </Button>
                   <Button
                     variant="outline"
@@ -430,15 +488,24 @@ export default function DatabaseRangePage({
                     {verificationCode}
                   </div>
                   <p className="text-lg font-display mb-2">YOUR VERIFICATION CODE</p>
-                  <p className="text-sm text-gray-600 mb-6">
-                    Send this code to <strong>@{BOT_USERNAME}</strong> on Telegram, or just say "hello"
-                  </p>
+                  <div className="bg-blue-50 border-2 border-blue-200 p-4 mb-4 rounded">
+                    <p className="text-sm text-gray-700 mb-2">
+                      <strong>Next steps:</strong>
+                    </p>
+                    <ol className="list-decimal list-inside text-sm text-gray-600 space-y-1 text-left">
+                      <li>Telegram should have opened automatically</li>
+                      <li>Start a chat with <strong>@{BOT_USERNAME}</strong></li>
+                      <li>Send this code: <strong className="text-black">{verificationCode}</strong></li>
+                      <li>Or just say <strong>"hello"</strong> - we'll link your account automatically!</li>
+                    </ol>
+                  </div>
                 </div>
 
                 {isWaiting && (
                   <div className="text-center mb-6">
                     <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-black mb-4"></div>
                     <p className="text-sm text-gray-600">Waiting for you to send the code...</p>
+                    <p className="text-xs text-gray-500 mt-2">Make sure you've started a chat with @{BOT_USERNAME}</p>
                   </div>
                 )}
 

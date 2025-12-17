@@ -192,7 +192,7 @@ export const appRouter = router({
             notion_database_id: input.notionDatabaseId || null,
             telegram_bot_token: input.telegramBotToken || null,
             telegram_chat_id: input.telegramChatId || null,
-            timezone: input.timezone || 'UTC',
+            timezone: input.timezone || 'America/New_York', // Match schema default
             morning_time: input.morningTime || '09:00',
             evening_time: input.eveningTime || '18:00',
             is_active: shouldAutoActivate ? true : (input.isActive !== undefined ? input.isActive : false),
@@ -207,18 +207,32 @@ export const appRouter = router({
             .single();
 
           if (error) {
-            throw new Error('Failed to create bot configuration');
+            SafeLogger.error('Failed to create bot configuration', {
+              userId: ctx.userId,
+              error: error.message,
+              errorCode: error.code,
+              errorDetails: error.details,
+            });
+            throw new Error(`Failed to create bot configuration: ${error.message}`);
           }
 
-          // Initialize bot state
+          // Initialize bot state (use upsert to handle existing state gracefully)
           const stateData: Database['public']['Tables']['bot_state']['Insert'] = {
             user_id: ctx.userId,
           };
 
-          await supabase
+          const { error: stateError } = await supabase
             .from('bot_state')
             // @ts-expect-error Supabase v2.80.0 type inference issue
-            .insert(stateData);
+            .upsert(stateData, { onConflict: 'user_id' });
+
+          if (stateError) {
+            SafeLogger.warn('Failed to initialize bot state (non-critical)', {
+              userId: ctx.userId,
+              error: stateError.message,
+            });
+            // Don't throw - bot state initialization is non-critical
+          }
 
           return data;
         }
@@ -825,7 +839,13 @@ export const appRouter = router({
           .single();
 
         if (error) {
-          throw new Error('Failed to generate verification code');
+          SafeLogger.error('Failed to generate verification code', {
+            userId: ctx.userId,
+            error: error.message,
+            errorCode: error.code,
+            errorDetails: error.details,
+          });
+          throw new Error(`Failed to generate verification code: ${error.message}`);
         }
 
         // Type assertion for Supabase query result

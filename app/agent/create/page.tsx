@@ -1,12 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser } from '@clerk/nextjs';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { trpc } from '@/lib/trpc';
 import { toast } from 'sonner';
+import { useLocalStoragePersistence } from '@/lib/hooks/use-local-storage-persistence';
 
 
 interface AnalysisResult {
@@ -38,6 +39,38 @@ export default function CreateDatabasePage() {
   const [generationProgress, setGenerationProgress] = useState('Initializing...');
   const [showCreditWarning, setShowCreditWarning] = useState(false);
   const [cooldownError, setCooldownError] = useState<{ canBypass: boolean; daysRemaining: number; error: string } | null>(null);
+
+  // Persist form state to localStorage
+  const { clear: clearPersistence } = useLocalStoragePersistence(
+    'threadbot:agent:create',
+    {
+      step,
+      brandUrls,
+      competitorUrls,
+      additionalContext,
+      startDate,
+      endDate,
+      useClaude,
+      // Note: analysis is excluded as it's server-generated
+    },
+    {
+      onRestore: (restored) => {
+        if (restored.step) setStep(restored.step);
+        if (restored.brandUrls && Array.isArray(restored.brandUrls) && restored.brandUrls.length > 0) {
+          setBrandUrls(restored.brandUrls);
+        }
+        if (restored.competitorUrls && Array.isArray(restored.competitorUrls)) {
+          setCompetitorUrls(restored.competitorUrls);
+        }
+        if (restored.additionalContext) setAdditionalContext(restored.additionalContext);
+        if (restored.startDate) setStartDate(restored.startDate);
+        if (restored.endDate) setEndDate(restored.endDate);
+        if (restored.useClaude !== undefined) setUseClaude(restored.useClaude);
+        toast.info('Your previous inputs have been restored');
+      },
+      excludeKeys: ['analysis'], // Don't persist server-generated analysis
+    }
+  );
 
   const { data: subscription } = trpc.agent.getSubscription.useQuery();
 
@@ -85,6 +118,8 @@ export default function CreateDatabasePage() {
     onSuccess: (data) => {
       const response = data as GenerationMutationResponse;
       if (response.success) {
+        // Clear persisted data on successful generation
+        clearPersistence();
         toast.success(`Generated ${response.totalPrompts} prompts!`);
         setTimeout(() => {
           // Redirect to date-range view with generated flag to show Telegram connection modal

@@ -6,6 +6,7 @@ import { useUser } from '@clerk/nextjs';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { trpc } from '@/lib/trpc';
+import { useLocalStoragePersistence } from '@/lib/hooks/use-local-storage-persistence';
 
 import { toast } from 'sonner';
 
@@ -15,8 +16,25 @@ export default function SetupNotionPage() {
   const [notionToken, setNotionToken] = useState('');
   const [databaseId, setDatabaseId] = useState('');
 
+  // Persist form state to localStorage
+  const { clear: clearPersistence } = useLocalStoragePersistence(
+    'threadbot:setup:notion',
+    { notionToken, databaseId },
+    {
+      onRestore: (restored) => {
+        if (restored.notionToken) setNotionToken(restored.notionToken);
+        if (restored.databaseId) setDatabaseId(restored.databaseId);
+        if (restored.notionToken || restored.databaseId) {
+          toast.info('Your previous inputs have been restored');
+        }
+      },
+    }
+  );
+
   const createConfig = trpc.bot.createConfig.useMutation({
     onSuccess: () => {
+      // Clear persisted data on successful connection
+      clearPersistence();
       toast.success('Notion connected successfully!');
       router.push('/setup/telegram');
     },

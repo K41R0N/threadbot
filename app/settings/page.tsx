@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser } from '@clerk/nextjs';
 import { Button } from '@/components/ui/button';
@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { trpc } from '@/lib/trpc';
 import { toast } from 'sonner';
 import { AuthenticatedLayout } from '@/components/layout/authenticated-layout';
+import { useLocalStoragePersistence } from '@/lib/hooks/use-local-storage-persistence';
 import type { BotConfig } from '@/lib/supabase';
 
 
@@ -31,27 +32,79 @@ export default function SettingsPage() {
   const [shouldClearNotionToken, setShouldClearNotionToken] = useState(false);
   const [testLogs, setTestLogs] = useState<string[]>([]);
   const [showTestLogs, setShowTestLogs] = useState(false);
+  const hasInitialized = useRef(false);
+  const shouldSaveToStorage = useRef(false); // Track when to start saving to localStorage
+
+  // Persist form state to localStorage (only for user edits, not server data)
+  // Note: enabled is always true to allow restoration, but we control saving via shouldSave
+  const { clear: clearPersistence } = useLocalStoragePersistence(
+    'threadbot:settings',
+    {
+      notionToken,
+      databaseId,
+      telegramChatId,
+      timezone,
+      morningTime,
+      eveningTime,
+      promptSource,
+    },
+    {
+      enabled: true, // Always enabled to allow restoration
+      onRestore: (restored) => {
+        // Only restore if we haven't initialized from server yet
+        // This preserves user edits if they navigate away before saving
+        if (!hasInitialized.current) {
+          if (restored.databaseId) setDatabaseId(restored.databaseId);
+          if (restored.telegramChatId) setTelegramChatId(restored.telegramChatId);
+          if (restored.timezone) setTimezone(restored.timezone);
+          if (restored.morningTime) setMorningTime(restored.morningTime);
+          if (restored.eveningTime) setEveningTime(restored.eveningTime);
+          if (restored.promptSource) setPromptSource(restored.promptSource);
+          if (restored.notionToken) setNotionToken(restored.notionToken);
+          // Check if any values were restored
+          const hasRestoredValues = Object.values(restored).some(v => v !== '' && v !== null && v !== undefined);
+          if (hasRestoredValues) {
+            toast.info('Your unsaved changes have been restored');
+          }
+        }
+      },
+      // Only save after initialization is complete (prevents saving server data as user edits)
+      shouldSave: () => shouldSaveToStorage.current,
+    }
+  );
 
   useEffect(() => {
-    if (config) {
-      const botConfig = config as BotConfig;
-      setDatabaseId(botConfig.notion_database_id || '');
-      setTelegramChatId(botConfig.telegram_chat_id || '');
-      setTimezone(botConfig.timezone || 'UTC');
-      setMorningTime(botConfig.morning_time || '09:00');
-      setEveningTime(botConfig.evening_time || '18:00');
-      setPromptSource(botConfig.prompt_source || 'notion');
-    } else {
-      // Set defaults for AI-only users without bot_config
-      setTimezone('UTC');
-      setMorningTime('09:00');
-      setEveningTime('18:00');
-      setPromptSource('agent'); // Default to agent for AI-only users
+    // Initialize from server config or defaults
+    if (!hasInitialized.current && !configLoading) {
+      if (config) {
+        const botConfig = config as BotConfig;
+        setDatabaseId(botConfig.notion_database_id || '');
+        setTelegramChatId(botConfig.telegram_chat_id || '');
+        // Match server default: 'America/New_York' instead of 'UTC'
+        setTimezone(botConfig.timezone || 'America/New_York');
+        setMorningTime(botConfig.morning_time || '09:00');
+        setEveningTime(botConfig.evening_time || '18:00');
+        setPromptSource(botConfig.prompt_source || 'notion');
+        // Note: notionToken is intentionally not loaded from server for security
+        // Users must re-enter it if they want to update it
+      } else {
+        // Set defaults for AI-only users without bot_config
+        // Match server default: 'America/New_York' instead of 'UTC'
+        setTimezone('America/New_York');
+        setMorningTime('09:00');
+        setEveningTime('18:00');
+        setPromptSource('agent'); // Default to agent for AI-only users
+      }
+      hasInitialized.current = true;
+      // Enable saving to localStorage after initialization is complete
+      shouldSaveToStorage.current = true;
     }
-  }, [config]);
+  }, [config, configLoading]);
 
   const updateConfig = trpc.bot.updateConfig.useMutation({
     onSuccess: () => {
+      // Clear persisted data on successful save
+      clearPersistence();
       // Reset clear flags only after successful save
       setShouldClearNotionToken(false);
       toast.success('Settings updated successfully!');
