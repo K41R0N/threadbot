@@ -342,6 +342,38 @@ export const appRouter = router({
       .mutation(async ({ ctx, input }) => {
         const supabase = serverSupabase;
 
+        // SECURITY: Rate limit to prevent Telegram API abuse (10 sends per hour per user)
+        const cooldownKey = `send:${ctx.userId}:${input.date}:${input.type}`;
+        const { data: lastSendRecord } = await supabase
+          .from('send_cooldowns')
+          .select('last_sent_at, send_count')
+          .eq('user_id', ctx.userId)
+          .eq('cooldown_key', cooldownKey)
+          .single();
+
+        const now = new Date();
+        const lastSent = lastSendRecord?.last_sent_at ? new Date(lastSendRecord.last_sent_at) : null;
+        const sendCount = lastSendRecord?.send_count || 0;
+
+        // Reset counter if last send was over 1 hour ago
+        const resetSendCount = lastSent && (now.getTime() - lastSent.getTime()) > 3600000;
+
+        if (!resetSendCount && sendCount >= 10) {
+          return {
+            success: false,
+            message: 'Rate limit exceeded. You can send up to 10 prompts per hour. Please try again later.',
+          };
+        }
+
+        // Check minimum cooldown between sends (30 seconds)
+        if (lastSent && (now.getTime() - lastSent.getTime()) < 30000) {
+          const secondsRemaining = Math.ceil((30000 - (now.getTime() - lastSent.getTime())) / 1000);
+          return {
+            success: false,
+            message: `Please wait ${secondsRemaining} seconds before sending another prompt.`,
+          };
+        }
+
         const { data, error } = await supabase
           .from('bot_configs')
           .select('*')
@@ -363,7 +395,23 @@ export const appRouter = router({
           };
         }
 
-        return await BotService.sendPromptByDate(config, input.date, input.type);
+        // Send the prompt
+        const result = await BotService.sendPromptByDate(config, input.date, input.type);
+
+        // Update cooldown tracking
+        if (result.success) {
+          await supabase
+            .from('send_cooldowns')
+            // @ts-expect-error Supabase v2.80.0 type inference issue
+            .upsert({
+              user_id: ctx.userId,
+              cooldown_key,
+              send_count: resetSendCount ? 1 : sendCount + 1,
+              last_sent_at: now.toISOString(),
+            });
+        }
+
+        return result;
       }),
 
     // Test Telegram prompt sending with detailed logging
