@@ -12,9 +12,12 @@ import { useLocalStoragePersistence } from '@/lib/hooks/use-local-storage-persis
 import type { BotConfig } from '@/lib/supabase';
 
 
+type SettingsTab = 'general' | 'telegram' | 'schedule' | 'notion' | 'advanced';
+
 export default function SettingsPage() {
   const router = useRouter();
   const { isSignedIn, isLoaded } = useUser();
+  const [activeTab, setActiveTab] = useState<SettingsTab>('general');
 
   const { data: config, isLoading: configLoading, refetch: refetchConfig } = trpc.bot.getConfig.useQuery(undefined, {
     enabled: isSignedIn,
@@ -286,9 +289,6 @@ export default function SettingsPage() {
     );
   }
 
-  // Note: config may be null for AI-only users who haven't set up Telegram/Notion
-  const botConfig: BotConfig | null = config || null;
-
   const handleClearNotionToken = () => {
     setShouldClearNotionToken(true);
     setNotionToken('');
@@ -395,12 +395,66 @@ export default function SettingsPage() {
     'Australia/Sydney',
   ];
 
+  const { data: subscription } = trpc.agent.getSubscription.useQuery();
+
+  // Determine which tab to show based on what needs setup
+  useEffect(() => {
+    if (!configLoading && config) {
+      const botCfg = config as BotConfig;
+      // If no Telegram connected, suggest that tab
+      if (!botCfg.telegram_chat_id && activeTab === 'general') {
+        // Don't auto-switch, just suggest
+      }
+    }
+  }, [config, configLoading, activeTab]);
+  
+  // Note: config may be null for AI-only users who haven't set up Telegram/Notion
+  const botConfigForTabs: BotConfig | null = config ? (config as BotConfig) : null;
+  
+  const tabs: Array<{ id: SettingsTab; label: string; icon: string; badge?: string }> = [
+    { id: 'general', label: 'General', icon: '⚙️' },
+    { id: 'telegram', label: 'Telegram', icon: '📱', badge: botConfigForTabs && !botConfigForTabs.telegram_chat_id ? '!' : undefined },
+    { id: 'schedule', label: 'Schedule', icon: '⏰' },
+    { id: 'notion', label: 'Notion', icon: '📝', badge: promptSource === 'notion' && botConfigForTabs && !botConfigForTabs.notion_database_id ? '!' : undefined },
+    { id: 'advanced', label: 'Advanced', icon: '🔧' },
+  ];
+
   return (
     <AuthenticatedLayout currentPage="settings" showSettingsButton={false}>
-      <div className="container mx-auto px-4 py-12 max-w-3xl">
+      <div className="container mx-auto px-4 py-8 max-w-5xl">
+        {/* Tab Navigation */}
+        <div className="border-b-2 border-black mb-8">
+          <div className="flex gap-2 overflow-x-auto">
+            {tabs.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`
+                  px-6 py-3 font-display text-sm border-b-2 transition-colors whitespace-nowrap
+                  ${activeTab === tab.id 
+                    ? 'border-black bg-black text-white' 
+                    : 'border-transparent hover:bg-gray-50 text-gray-600 hover:text-black'
+                  }
+                `}
+              >
+                <span className="mr-2">{tab.icon}</span>
+                {tab.label}
+                {tab.badge && (
+                  <span className="ml-2 w-5 h-5 bg-red-500 text-white rounded-full text-xs flex items-center justify-center inline-block">
+                    {tab.badge}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+
         <form onSubmit={handleSubmit} className="space-y-8">
-          {/* Prompt Source Selection */}
-          <div className="border-2 border-black p-8">
+          {/* General Tab */}
+          {activeTab === 'general' && (
+            <div className="space-y-8">
+              {/* Prompt Source Selection */}
+              <div className="border-2 border-black p-8">
             <h2 className="text-3xl font-display mb-4">PROMPT SOURCE</h2>
             <p className="text-gray-600 mb-6">
               Choose where your daily prompts come from
@@ -443,58 +497,38 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          {/* Notion Settings */}
-          {promptSource === 'notion' && (
-            <div className="border-2 border-black p-8">
-            <h2 className="text-3xl font-display mb-6">NOTION</h2>
-
-            <div className="space-y-6">
-              <div>
-                <label className="block font-display text-sm mb-2">
-                  NOTION TOKEN
-                  <span className="text-gray-500 ml-2">(leave blank to keep current)</span>
-                </label>
-                <div className="flex gap-2">
-                  <Input
-                    type={showNotionToken ? 'text' : 'password'}
-                    placeholder="secret_..."
-                    value={notionToken}
-                    onChange={handleNotionTokenChange}
-                  />
-                  <Button
+              {/* Generation Credits Display */}
+              <div className="border-2 border-black p-8">
+                <h2 className="text-3xl font-display mb-4">GENERATION CREDITS</h2>
+                <div className="flex justify-between items-start">
+                  <div className="flex-1">
+                    <p className="text-xl mb-4">
+                      <span className="font-display text-5xl">{subscription?.claude_credits || 0}</span>
+                      <span className="text-gray-600 ml-3">credits remaining</span>
+                    </p>
+                    <div className="text-sm text-gray-600 space-y-1">
+                      <p>• DeepSeek R1: <span className="font-display">FREE</span> (Once per week)</p>
+                      <p>• Claude Sonnet 4.5: <span className="font-display">1 CREDIT</span> per generation</p>
+                      <p>• Bypass weekly cooldown: <span className="font-display">1 CREDIT</span></p>
+                    </div>
+                  </div>
+                  <Button 
                     type="button"
-                    variant="outline"
-                    onClick={() => setShowNotionToken(!showNotionToken)}
+                    onClick={() => {
+                      toast.info('Stripe integration coming soon!');
+                    }}
                   >
-                    {showNotionToken ? 'HIDE' : 'SHOW'}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={handleClearNotionToken}
-                    className="text-red-600 hover:bg-red-50"
-                  >
-                    CLEAR
+                    BUY CREDITS
                   </Button>
                 </div>
               </div>
-
-              <div>
-                <label className="block font-display text-sm mb-2">DATABASE ID</label>
-                <Input
-                  type="text"
-                  placeholder="abc123def456..."
-                  value={databaseId}
-                  onChange={(e) => setDatabaseId(e.target.value)}
-                  required={promptSource === 'notion'}
-                />
-              </div>
             </div>
-          </div>
           )}
 
-          {/* Telegram Settings */}
-          <div className="border-2 border-black p-8">
+          {/* Telegram Tab */}
+          {activeTab === 'telegram' && (
+            <div className="space-y-8">
+              <div className="border-2 border-black p-8">
             <h2 className="text-3xl font-display mb-6">TELEGRAM</h2>
 
             <div className="space-y-6">
@@ -656,9 +690,13 @@ export default function SettingsPage() {
               </div>
             </div>
           </div>
+            </div>
+          )}
 
-          {/* Schedule Settings */}
-          <div className="border-2 border-black p-8">
+          {/* Schedule Tab */}
+          {activeTab === 'schedule' && (
+            <div className="space-y-8">
+              <div className="border-2 border-black p-8">
             <h2 className="text-3xl font-display mb-6">SCHEDULE</h2>
 
             <div className="space-y-6">
@@ -701,9 +739,88 @@ export default function SettingsPage() {
               </div>
             </div>
           </div>
+            </div>
+          )}
 
-          {/* DANGER ZONE */}
-          <div className="border-2 border-red-600 p-8 bg-red-50">
+          {/* Notion Tab */}
+          {activeTab === 'notion' && promptSource === 'notion' && (
+            <div className="space-y-8">
+              <div className="border-2 border-black p-8">
+                <h2 className="text-3xl font-display mb-6">NOTION</h2>
+
+                <div className="space-y-6">
+                  <div>
+                    <label className="block font-display text-sm mb-2">
+                      NOTION TOKEN
+                      <span className="text-gray-500 ml-2">(leave blank to keep current)</span>
+                    </label>
+                    <div className="flex gap-2">
+                      <Input
+                        type={showNotionToken ? 'text' : 'password'}
+                        placeholder="secret_..."
+                        value={notionToken}
+                        onChange={handleNotionTokenChange}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setShowNotionToken(!showNotionToken)}
+                      >
+                        {showNotionToken ? 'HIDE' : 'SHOW'}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={handleClearNotionToken}
+                        className="text-red-600 hover:bg-red-50"
+                      >
+                        CLEAR
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block font-display text-sm mb-2">DATABASE ID</label>
+                    <Input
+                      type="text"
+                      placeholder="abc123def456..."
+                      value={databaseId}
+                      onChange={(e) => setDatabaseId(e.target.value)}
+                      required={promptSource === 'notion'}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Notion Tab - Hidden when using Agent */}
+          {activeTab === 'notion' && promptSource === 'agent' && (
+            <div className="border-2 border-black p-8">
+              <div className="text-center py-12">
+                <div className="text-6xl mb-4">📝</div>
+                <h2 className="text-2xl font-display mb-3">NOTION NOT CONFIGURED</h2>
+                <p className="text-gray-600 mb-6">
+                  You're currently using AI Agent for prompts. Switch to Notion in the General tab to configure Notion settings.
+                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setActiveTab('general');
+                    setPromptSource('notion');
+                  }}
+                >
+                  SWITCH TO NOTION
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Advanced Tab */}
+          {activeTab === 'advanced' && (
+            <div className="space-y-8">
+              <div className="border-2 border-red-600 p-8 bg-red-50">
             <h2 className="text-3xl font-display mb-2 text-red-600">⚠️ DANGER ZONE</h2>
             <p className="text-sm text-red-700 mb-6">
               These actions are irreversible. Please be certain before proceeding.
@@ -799,24 +916,28 @@ export default function SettingsPage() {
               </div>
             </div>
           </div>
+            </div>
+          )}
 
-          {/* Submit */}
-          <div className="flex gap-4">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => router.push('/dashboard')}
-              className="flex-1"
-            >
-              CANCEL
-            </Button>
-            <Button
-              type="submit"
-              disabled={updateConfig.isPending}
-              className="flex-1"
-            >
-              {updateConfig.isPending ? 'SAVING...' : 'SAVE CHANGES'}
-            </Button>
+          {/* Submit Button - Always visible */}
+          <div className="sticky bottom-0 bg-white border-t-2 border-black p-4 -mx-4 -mb-8 mt-8">
+            <div className="flex gap-4 max-w-5xl mx-auto">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => router.push('/dashboard')}
+                className="flex-1"
+              >
+                CANCEL
+              </Button>
+              <Button
+                type="submit"
+                disabled={updateConfig.isPending}
+                className="flex-1"
+              >
+                {updateConfig.isPending ? 'SAVING...' : 'SAVE CHANGES'}
+              </Button>
+            </div>
           </div>
         </form>
       </div>
