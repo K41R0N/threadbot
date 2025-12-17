@@ -56,6 +56,28 @@ export default function CreateDatabasePage() {
     },
     {
       onRestore: (restored) => {
+        // Validate restored data - if step is 'model' or 'generating' but we don't have required data, reset to 'context'
+        if (restored.step === 'model' || restored.step === 'generating') {
+          // For 'model' step, we need at least one brand URL to proceed
+          const hasValidBrandUrls = restored.brandUrls && Array.isArray(restored.brandUrls) && restored.brandUrls.some((url: string) => url.trim());
+          if (!hasValidBrandUrls) {
+            // Invalid state - reset to beginning
+            setStep('context');
+            if (restored.brandUrls && Array.isArray(restored.brandUrls) && restored.brandUrls.length > 0) {
+              setBrandUrls(restored.brandUrls);
+            }
+            if (restored.competitorUrls && Array.isArray(restored.competitorUrls)) {
+              setCompetitorUrls(restored.competitorUrls);
+            }
+            if (restored.additionalContext) setAdditionalContext(restored.additionalContext);
+            if (restored.startDate) setStartDate(restored.startDate);
+            if (restored.useClaude !== undefined) setUseClaude(restored.useClaude);
+            toast.warning('Previous session data was invalid. Starting from beginning.');
+            return;
+          }
+        }
+
+        // Valid restoration
         if (restored.step) setStep(restored.step);
         if (restored.brandUrls && Array.isArray(restored.brandUrls) && restored.brandUrls.length > 0) {
           setBrandUrls(restored.brandUrls);
@@ -72,6 +94,69 @@ export default function CreateDatabasePage() {
       // Note: 'analysis' is already excluded as it's not in the state object above
     }
   );
+
+  // Reset function to start from scratch
+  const handleStartOver = () => {
+    // Clear localStorage
+    clearPersistence();
+    // Reset all state
+    setStep('context');
+    setBrandUrls(['']);
+    setCompetitorUrls([]);
+    setAdditionalContext('');
+    setStartDate('');
+    setEndDate('');
+    setUseClaude(false);
+    setAnalysis(null);
+    setGenerationProgress('Initializing...');
+    setShowCreditWarning(false);
+    setCooldownError(null);
+    toast.success('Started fresh!');
+  };
+
+  // Validate state consistency on mount and when step changes
+  useEffect(() => {
+    // If we're on 'model' step but don't have analysis, we can't proceed - reset to context
+    if (step === 'model' && !analysis) {
+      // Only reset if we have some brand URLs to work with, otherwise full reset
+      const hasValidBrandUrls = brandUrls.some((url) => url.trim());
+      if (hasValidBrandUrls) {
+        // We have URLs but no analysis - user needs to re-analyze
+        setStep('context');
+        toast.warning('Analysis data missing. Please analyze your context again.');
+      } else {
+        // No valid data at all - full reset
+        clearPersistence();
+        setStep('context');
+        setBrandUrls(['']);
+        setCompetitorUrls([]);
+        setAdditionalContext('');
+        setStartDate('');
+        setEndDate('');
+        setUseClaude(false);
+        setAnalysis(null);
+        setGenerationProgress('Initializing...');
+        setShowCreditWarning(false);
+        setCooldownError(null);
+      }
+    }
+    // If we're on 'generating' step but shouldn't be (only set by handleGenerate), reset
+    if (step === 'generating' && generationProgress === 'Initializing...') {
+      clearPersistence();
+      setStep('context');
+      setBrandUrls(['']);
+      setCompetitorUrls([]);
+      setAdditionalContext('');
+      setStartDate('');
+      setEndDate('');
+      setUseClaude(false);
+      setAnalysis(null);
+      setGenerationProgress('Initializing...');
+      setShowCreditWarning(false);
+      setCooldownError(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, analysis, brandUrls, generationProgress]);
 
   const { data: subscription } = trpc.agent.getSubscription.useQuery();
 
@@ -249,6 +334,17 @@ export default function CreateDatabasePage() {
       showBackButton={true}
       backButtonHref="/dashboard"
       backButtonDisabled={step === 'generating'}
+      rightActions={
+        step !== 'generating' ? (
+          <Button
+            variant="ghost"
+            onClick={handleStartOver}
+            className="text-sm text-gray-600 hover:text-black"
+          >
+            START OVER
+          </Button>
+        ) : undefined
+      }
       headerExtra={
         <div className="flex items-center gap-2">
           <div className={`px-2 sm:px-3 py-1 text-xs sm:text-sm font-display ${step === 'context' ? 'bg-black text-white' : 'bg-gray-200 text-gray-600'}`}>
@@ -422,6 +518,20 @@ export default function CreateDatabasePage() {
         )}
 
         {/* Step: Model Selection */}
+        {step === 'model' && !analysis && (
+          <div className="border-2 border-black p-8">
+            <div className="text-center py-12">
+              <h2 className="text-2xl font-display mb-4">NO ANALYSIS DATA</h2>
+              <p className="text-gray-600 mb-6">
+                The analysis data from your previous session could not be restored. Please start over to create a new database.
+              </p>
+              <Button onClick={handleStartOver}>
+                START OVER
+              </Button>
+            </div>
+          </div>
+        )}
+
         {step === 'model' && analysis && (
           <div className="space-y-8">
             {/* Analysis Results */}
