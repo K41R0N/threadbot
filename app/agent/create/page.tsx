@@ -68,7 +68,7 @@ export default function CreateDatabasePage() {
         if (restored.useClaude !== undefined) setUseClaude(restored.useClaude);
         toast.info('Your previous inputs have been restored');
       },
-      excludeKeys: ['analysis'], // Don't persist server-generated analysis
+      // Note: 'analysis' is already excluded as it's not in the state object above
     }
   );
 
