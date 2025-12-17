@@ -58,6 +58,7 @@ export async function POST(request: NextRequest) {
       const code = verificationCodeMatch ? verificationCodeMatch[1] : null;
       
       // Look for active verification code
+      // Note: Select timezone if it exists, but handle gracefully if column doesn't exist yet
       let verificationQuery = supabase
         .from('telegram_verification_codes')
         .select('id, user_id, code, expires_at, timezone')
@@ -66,18 +67,31 @@ export async function POST(request: NextRequest) {
 
       if (code) {
         verificationQuery = verificationQuery.eq('code', code);
+        SafeLogger.info('Looking for verification code', { code, chatId });
       } else if (isHello) {
         // If just "hello", get the most recent unexpired code
         verificationQuery = verificationQuery.order('created_at', { ascending: false });
+        SafeLogger.info('Looking for verification code via hello', { chatId });
       }
 
-      const { data: verificationData } = await verificationQuery.limit(1);
+      const { data: verificationData, error: verificationError } = await verificationQuery.limit(1);
+
+      if (verificationError) {
+        SafeLogger.error('Failed to query verification codes', {
+          error: verificationError.message,
+          code: verificationError.code,
+          details: verificationError.details,
+          chatId,
+          code: code || 'hello',
+        });
+        // Continue to normal flow - don't block on verification code lookup errors
+      }
 
       if (verificationData && verificationData.length > 0) {
         const verification = verificationData[0] as { id: string; user_id: string; code: string; expires_at: string; timezone: string | null };
         
         // Mark code as used and link chat ID
-        await supabase
+        const { error: updateCodeError } = await supabase
           .from('telegram_verification_codes')
           // @ts-expect-error Supabase v2.80.0 type inference issue
           .update({
@@ -85,6 +99,17 @@ export async function POST(request: NextRequest) {
             chat_id: chatId,
           })
           .eq('id', verification.id);
+
+        if (updateCodeError) {
+          SafeLogger.error('Failed to mark verification code as used', {
+            error: updateCodeError.message,
+            code: updateCodeError.code,
+            verificationId: verification.id,
+            userId: verification.user_id,
+            chatId,
+          });
+          // Continue anyway - try to link the account
+        }
 
         // Check if user has prompts (AI path)
         const { data: prompts } = await supabase
@@ -103,7 +128,8 @@ export async function POST(request: NextRequest) {
           .single();
 
         // Use detected timezone from verification code, or fall back to default
-        const detectedTimezone = verification.timezone || 'America/New_York';
+        // Handle case where timezone might not be in the result (column doesn't exist yet)
+        const detectedTimezone = (verification as any).timezone || 'America/New_York';
 
         // Type assertion for Supabase query result
         const configData = existingConfig as { id: string; is_active: boolean } | null;
@@ -126,14 +152,26 @@ export async function POST(request: NextRequest) {
 
         if (configData) {
           // Update existing config
-          await supabase
+          const { error: updateConfigError } = await supabase
             .from('bot_configs')
             // @ts-expect-error Supabase v2.80.0 type inference issue
             .update(configUpdate)
             .eq('user_id', verification.user_id);
+
+          if (updateConfigError) {
+            SafeLogger.error('Failed to update bot config during verification', {
+              error: updateConfigError.message,
+              code: updateConfigError.code,
+              details: updateConfigError.details,
+              userId: verification.user_id,
+              chatId,
+              configUpdate,
+            });
+            throw new Error(`Failed to update bot config: ${updateConfigError.message}`);
+          }
         } else {
           // Create new config with smart defaults
-          await supabase
+          const { error: insertConfigError } = await supabase
             .from('bot_configs')
             // @ts-expect-error Supabase v2.80.0 type inference issue
             .insert({
@@ -141,19 +179,48 @@ export async function POST(request: NextRequest) {
               ...configUpdate,
             });
 
+          if (insertConfigError) {
+            SafeLogger.error('Failed to create bot config during verification', {
+              error: insertConfigError.message,
+              code: insertConfigError.code,
+              details: insertConfigError.details,
+              userId: verification.user_id,
+              chatId,
+              configUpdate,
+            });
+            throw new Error(`Failed to create bot config: ${insertConfigError.message}`);
+          }
+
           // Initialize bot state
-          await supabase
+          const { error: stateError } = await supabase
             .from('bot_state')
             // @ts-expect-error Supabase v2.80.0 type inference issue
             .insert({ user_id: verification.user_id });
+
+          if (stateError) {
+            SafeLogger.warn('Failed to initialize bot state (non-critical)', {
+              error: stateError.message,
+              userId: verification.user_id,
+            });
+            // Don't throw - bot state initialization is non-critical
+          }
         }
 
         // Send confirmation message
-        const telegram = new TelegramService();
-        await telegram.sendMessage(
-          chatId,
-          `✅ *Account Linked\\!*\n\nYour Telegram account has been successfully linked to Threadbot\\. You can now receive prompts and log replies\\.`
-        );
+        try {
+          const telegram = new TelegramService();
+          await telegram.sendMessage(
+            chatId,
+            `✅ *Account Linked\\!*\n\nYour Telegram account has been successfully linked to Threadbot\\. You can now receive prompts and log replies\\.`
+          );
+        } catch (telegramError: any) {
+          SafeLogger.error('Failed to send confirmation message', {
+            error: telegramError.message,
+            chatId,
+            userId: verification.user_id,
+          });
+          // Don't throw - account is already linked, message is just confirmation
+        }
 
         SafeLogger.info('Chat ID linked via verification code', {
           userId: verification.user_id,
@@ -162,6 +229,14 @@ export async function POST(request: NextRequest) {
         });
 
         return NextResponse.json({ ok: true });
+      } else {
+        // No matching verification code found
+        SafeLogger.info('No matching verification code found', {
+          chatId,
+          code: code || 'hello',
+          isHello,
+          hasCode: !!code,
+        });
       }
     }
 
