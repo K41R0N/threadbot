@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { trpc } from '@/lib/trpc';
 import { toast } from 'sonner';
 import type { UserPrompt } from '@/lib/supabase-agent';
+import type { BotConfig } from '@/lib/supabase';
 
 // Get bot username from environment or use default
 const BOT_USERNAME = process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME || 'threadbot_bot';
@@ -34,6 +35,9 @@ export default function DatabaseRangePage({
     enabled: isSignedIn,
   });
 
+  // Type assertion for tRPC query result
+  const botConfig = config as BotConfig | null | undefined;
+
   const generateCode = trpc.bot.generateVerificationCode.useMutation({
     onSuccess: (data) => {
       setVerificationCode(data.code);
@@ -53,10 +57,10 @@ export default function DatabaseRangePage({
 
   useEffect(() => {
     // Show modal if just generated and Telegram not connected
-    if (isFreshGeneration && (!config?.telegram_chat_id || !config?.is_active)) {
+    if (isFreshGeneration && (!botConfig?.telegram_chat_id || !botConfig?.is_active)) {
       setShowTelegramModal(true);
     }
-  }, [isFreshGeneration, config]);
+  }, [isFreshGeneration, botConfig]);
 
   useEffect(() => {
     if (linkStatus?.linked) {
@@ -225,21 +229,21 @@ export default function DatabaseRangePage({
 
       <div className="container mx-auto px-4 py-8">
         {/* Telegram Connection Banner */}
-        {config && (!config.telegram_chat_id || !config.is_active) && (
+        {botConfig && (!botConfig.telegram_chat_id || !botConfig.is_active) && (
           <div className="border-2 border-black p-6 mb-8 bg-yellow-50">
             <div className="flex items-center justify-between">
               <div className="flex-1">
                 <h3 className="font-display text-xl mb-2">
-                  {!config.telegram_chat_id ? '📱 Connect Telegram to Receive Daily Prompts' : '⚡ Activate Bot to Start Receiving Prompts'}
+                  {!botConfig.telegram_chat_id ? '📱 Connect Telegram to Receive Daily Prompts' : '⚡ Activate Bot to Start Receiving Prompts'}
                 </h3>
                 <p className="text-sm text-gray-600">
-                  {!config.telegram_chat_id 
+                  {!botConfig.telegram_chat_id 
                     ? 'Connect your Telegram account to start receiving your generated prompts daily.'
                     : 'Your bot is connected but inactive. Activate it to start receiving prompts.'}
                 </p>
               </div>
               <div className="flex gap-3">
-                {!config.telegram_chat_id ? (
+                {!botConfig.telegram_chat_id ? (
                   <Button onClick={() => setShowTelegramModal(true)}>
                     CONNECT TELEGRAM
                   </Button>
@@ -254,14 +258,14 @@ export default function DatabaseRangePage({
         )}
 
         {/* Success Banner */}
-        {config && config.telegram_chat_id && config.is_active && (
+        {botConfig && botConfig.telegram_chat_id && botConfig.is_active && (
           <div className="border-2 border-green-500 p-4 mb-8 bg-green-50">
             <div className="flex items-center gap-3">
               <span className="text-2xl">✅</span>
               <div>
                 <div className="font-display text-lg text-green-800">Bot is Active!</div>
                 <div className="text-sm text-green-700">
-                  You'll receive prompts daily at {config.morning_time} and {config.evening_time} ({config.timezone})
+                  You'll receive prompts daily at {botConfig.morning_time} and {botConfig.evening_time} ({botConfig.timezone})
                 </div>
               </div>
             </div>
