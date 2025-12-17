@@ -38,10 +38,10 @@ export default function Home() {
             <h1 className="text-2xl sm:text-3xl md:text-4xl font-display">THREADBOT</h1>
             <div className="flex gap-2 sm:gap-4">
               <SignedOut>
-                <SignInButton mode="modal" redirectUrl="/dashboard">
+                <SignInButton mode="modal">
                   <Button variant="ghost" className="text-xs sm:text-sm px-3 sm:px-4">SIGN IN</Button>
                 </SignInButton>
-                <SignUpButton mode="modal" redirectUrl="/dashboard">
+                <SignUpButton mode="modal">
                   <Button className="text-xs sm:text-sm px-3 sm:px-4">GET STARTED</Button>
                 </SignUpButton>
               </SignedOut>
@@ -78,7 +78,7 @@ export default function Home() {
           </div>
         </div>
         <SignedOut>
-          <SignUpButton mode="modal" redirectUrl="/dashboard">
+          <SignUpButton mode="modal">
             <Button size="lg" className="bg-white text-black border-white hover:bg-white hover:text-black text-sm sm:text-base px-6 sm:px-8">
               GET STARTED FREE
             </Button>
@@ -123,7 +123,7 @@ export default function Home() {
             Create your first AI-generated prompt database or connect your Notion workspace. Set up in minutes.
           </p>
           <SignedOut>
-            <SignUpButton mode="modal" redirectUrl="/dashboard">
+            <SignUpButton mode="modal">
               <Button variant="outline" size="lg" className="border-white text-white hover:bg-white hover:text-black text-sm sm:text-base px-6 sm:px-8">
                 GET STARTED FREE
               </Button>
