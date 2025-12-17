@@ -45,13 +45,85 @@ export async function POST(request: NextRequest) {
     }
 
     const chatId = message.chat.id.toString();
-    const messageText = message.text.trim().toLowerCase();
+    const messageText = message.text.trim();
+    const messageTextLower = messageText.toLowerCase();
 
     const supabase = serverSupabase;
+    const telegram = new TelegramService();
+
+    // Handle bot commands first (commands start with /)
+    const isCommand = messageText.startsWith('/');
+    if (isCommand) {
+      const command = messageTextLower.split(' ')[0]; // Get command without parameters
+      
+      // Check if user is already linked
+      const { data: existingConfig } = await supabase
+        .from('bot_configs')
+        .select('user_id, is_active')
+        .eq('telegram_chat_id', chatId)
+        .maybeSingle();
+
+      if (command === '/start' || command === '/verify') {
+        if (existingConfig) {
+          // User is already linked
+          await telegram.sendMessage(
+            chatId,
+            `✅ *You're Already Connected\\!*\n\nYour Telegram account is linked to Threadbot\\.\n\n📱 *Status:* ${existingConfig.is_active ? 'Active' : 'Inactive'}\n\n💡 *Commands:*\n• /status \\- Check your connection status\n• /help \\- Get help\n\n📝 *To receive prompts:*\nMake sure your bot is active in your dashboard settings\\.`
+          );
+        } else {
+          // User is not linked - provide verification instructions
+          await telegram.sendMessage(
+            chatId,
+            `👋 *Welcome to Threadbot\\!*\n\nTo connect your account:\n\n1️⃣ Go to your Threadbot dashboard\n2️⃣ Click "Connect Telegram" or "Settings" → "Telegram"\n3️⃣ Click "Generate Verification Code"\n4️⃣ Send the 6\\-digit code here\n\n💡 *Or* just say "hello" after generating a code\\.\n\n🔗 *Get started:* ${process.env.NEXT_PUBLIC_APP_URL || 'https://your-app.com'}/dashboard`
+          );
+        }
+        return NextResponse.json({ ok: true });
+      }
+
+      if (command === '/status') {
+        if (existingConfig) {
+          const { data: state } = await supabase
+            .from('bot_state')
+            .select('last_prompt_type, last_prompt_sent_at')
+            .eq('user_id', existingConfig.user_id)
+            .single();
+
+          const lastPrompt = state?.last_prompt_sent_at 
+            ? new Date(state.last_prompt_sent_at).toLocaleString()
+            : 'Never';
+
+          await telegram.sendMessage(
+            chatId,
+            `📊 *Your Threadbot Status*\n\n🔗 *Connection:* ✅ Linked\n📱 *Bot Status:* ${existingConfig.is_active ? '✅ Active' : '❌ Inactive'}\n📅 *Last Prompt:* ${lastPrompt}\n\n💡 To activate your bot, go to Settings → Telegram in your dashboard\\.`
+          );
+        } else {
+          await telegram.sendMessage(
+            chatId,
+            `📊 *Your Threadbot Status*\n\n🔗 *Connection:* ❌ Not Linked\n\nTo connect, use /start or /verify\\.`
+          );
+        }
+        return NextResponse.json({ ok: true });
+      }
+
+      if (command === '/help') {
+        await telegram.sendMessage(
+          chatId,
+          `ℹ️ *Threadbot Help*\n\n*Commands:*\n/start \\- Connect your account\n/verify \\- Connect your account\n/status \\- Check connection status\n/help \\- Show this help\n\n*How to Connect:*\n1\\. Go to your dashboard\n2\\. Generate a verification code\n3\\. Send the code here\n\n*Need Support?*\nVisit your dashboard for more help\\.`
+        );
+        return NextResponse.json({ ok: true });
+      }
+
+      // Unknown command
+      await telegram.sendMessage(
+        chatId,
+        `❓ *Unknown Command*\n\nAvailable commands:\n/start \\- Connect your account\n/verify \\- Connect your account\n/status \\- Check status\n/help \\- Get help`
+      );
+      return NextResponse.json({ ok: true });
+    }
 
     // Check if this is a verification code (6-digit number or "hello" + code)
-    const verificationCodeMatch = messageText.match(/(\d{6})/);
-    const isHello = messageText.includes('hello') || messageText.includes('hi') || messageText.includes('hey');
+    const verificationCodeMatch = messageTextLower.match(/(\d{6})/);
+    const isHello = messageTextLower.includes('hello') || messageTextLower.includes('hi') || messageTextLower.includes('hey');
 
     // Try to find verification code first
     if (verificationCodeMatch || isHello) {
@@ -364,10 +436,9 @@ export async function POST(request: NextRequest) {
     if (error || !data) {
       // If no user found and not a verification code, send helpful message
       if (!verificationCodeMatch && !isHello) {
-        const telegram = new TelegramService();
         await telegram.sendMessage(
           chatId,
-          `👋 *Hello\\!*\n\nTo link your account, please:\n\n1\\. Go to your Threadbot dashboard\n2\\. Click "Connect Telegram"\n3\\. Send the verification code here\n\nOr just say "hello" if you have an active verification code\\.`
+          `👋 *Hello\\!*\n\nTo link your account:\n\n1\\. Go to your Threadbot dashboard\n2\\. Click "Connect Telegram"\n3\\. Generate a verification code\n4\\. Send the code here\n\n💡 *Quick Commands:*\n/start \\- Get connection instructions\n/verify \\- Get connection instructions\n/help \\- Show help\n\nOr just say "hello" if you have an active verification code\\.`
         );
       }
       
