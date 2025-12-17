@@ -1,8 +1,34 @@
-import { SignInButton, SignUpButton, SignedIn, SignedOut } from '@clerk/nextjs';
+'use client';
+
+import { SignInButton, SignUpButton, SignedIn, SignedOut, useUser } from '@clerk/nextjs';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 
 export default function Home() {
+  const router = useRouter();
+  const { isSignedIn, isLoaded } = useUser();
+
+  // Redirect signed-in users to dashboard
+  useEffect(() => {
+    if (isLoaded && isSignedIn) {
+      router.push('/dashboard');
+    }
+  }, [isLoaded, isSignedIn, router]);
+
+  // Show loading state while checking auth
+  if (isLoaded && isSignedIn) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-display mb-2">Redirecting...</h1>
+          <p className="text-gray-600">Taking you to your dashboard</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-white text-black">
       {/* Header */}
@@ -12,18 +38,13 @@ export default function Home() {
             <h1 className="text-2xl sm:text-3xl md:text-4xl font-display">THREADBOT</h1>
             <div className="flex gap-2 sm:gap-4">
               <SignedOut>
-                <SignInButton mode="modal">
+                <SignInButton mode="modal" redirectUrl="/dashboard">
                   <Button variant="ghost" className="text-xs sm:text-sm px-3 sm:px-4">SIGN IN</Button>
                 </SignInButton>
-                <SignUpButton mode="modal">
+                <SignUpButton mode="modal" redirectUrl="/dashboard">
                   <Button className="text-xs sm:text-sm px-3 sm:px-4">GET STARTED</Button>
                 </SignUpButton>
               </SignedOut>
-              <SignedIn>
-                <Link href="/dashboard">
-                  <Button className="text-xs sm:text-sm px-3 sm:px-4">DASHBOARD</Button>
-                </Link>
-              </SignedIn>
             </div>
           </div>
         </div>
@@ -32,25 +53,37 @@ export default function Home() {
       {/* Hero */}
       <section className="container mx-auto px-4 sm:px-6 py-12 sm:py-16 md:py-20 text-center">
         <h2 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-display mb-4 sm:mb-6 leading-tight">
-          <span className="block">AUTOMATE YOUR</span>
-          <span className="block">NOTION PROMPTS</span>
+          <span className="block">AI-POWERED DAILY</span>
+          <span className="block">PROMPTS TO TELEGRAM</span>
         </h2>
-        <p className="text-base sm:text-lg md:text-xl max-w-2xl mx-auto mb-8 sm:mb-12 text-gray-600 px-4">
-          Send scheduled prompts from your Notion database to Telegram and automatically log replies back. 
-          Perfect for daily journaling, reflection, and habit tracking.
+        <p className="text-base sm:text-lg md:text-xl max-w-2xl mx-auto mb-6 sm:mb-8 text-gray-600 px-4">
+          Generate personalized prompts with AI or use your Notion database. Receive them daily on Telegram and log your responses automatically.
         </p>
+        <div className="mb-8 sm:mb-12">
+          <div className="inline-flex flex-wrap justify-center gap-3 sm:gap-4 text-sm sm:text-base text-gray-700">
+            <span className="flex items-center gap-2">
+              <span className="text-lg">🤖</span>
+              <span>AI-Generated Prompts</span>
+            </span>
+            <span className="hidden sm:inline">•</span>
+            <span className="flex items-center gap-2">
+              <span className="text-lg">📝</span>
+              <span>Notion Integration</span>
+            </span>
+            <span className="hidden sm:inline">•</span>
+            <span className="flex items-center gap-2">
+              <span className="text-lg">📱</span>
+              <span>Telegram Delivery</span>
+            </span>
+          </div>
+        </div>
         <SignedOut>
-          <SignUpButton mode="modal">
+          <SignUpButton mode="modal" redirectUrl="/dashboard">
             <Button size="lg" className="bg-white text-black border-white hover:bg-white hover:text-black text-sm sm:text-base px-6 sm:px-8">
               GET STARTED FREE
             </Button>
           </SignUpButton>
         </SignedOut>
-        <SignedIn>
-          <Link href="/dashboard">
-            <Button size="lg" className="text-sm sm:text-base px-6 sm:px-8">GO TO DASHBOARD</Button>
-          </Link>
-        </SignedIn>
       </section>
 
       {/* Features */}
@@ -59,23 +92,23 @@ export default function Home() {
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8 md:gap-12">
             <div className="border-2 border-black p-6 sm:p-8">
               <div className="text-4xl sm:text-5xl md:text-6xl font-display mb-3 sm:mb-4">01</div>
-              <h3 className="text-xl sm:text-2xl font-display mb-2 sm:mb-3">CONNECT NOTION</h3>
+              <h3 className="text-xl sm:text-2xl font-display mb-2 sm:mb-3">CHOOSE YOUR PATH</h3>
               <p className="text-sm sm:text-base text-gray-600">
-                Link your Notion workspace and select the database with your prompts
+                Use AI to generate personalized prompts from your brand context, or connect your existing Notion database
               </p>
             </div>
             <div className="border-2 border-black p-6 sm:p-8">
               <div className="text-4xl sm:text-5xl md:text-6xl font-display mb-3 sm:mb-4">02</div>
-              <h3 className="text-xl sm:text-2xl font-display mb-2 sm:mb-3">SETUP TELEGRAM</h3>
+              <h3 className="text-xl sm:text-2xl font-display mb-2 sm:mb-3">CONNECT TELEGRAM</h3>
               <p className="text-sm sm:text-base text-gray-600">
-                Create your bot and configure message delivery
+                Link your Telegram account with a simple verification code. No bot setup required
               </p>
             </div>
             <div className="border-2 border-black p-6 sm:p-8 sm:col-span-2 lg:col-span-1">
               <div className="text-4xl sm:text-5xl md:text-6xl font-display mb-3 sm:mb-4">03</div>
-              <h3 className="text-xl sm:text-2xl font-display mb-2 sm:mb-3">SET SCHEDULE</h3>
+              <h3 className="text-xl sm:text-2xl font-display mb-2 sm:mb-3">RECEIVE & RESPOND</h3>
               <p className="text-sm sm:text-base text-gray-600">
-                Choose when you want to receive your prompts
+                Get prompts twice daily at your chosen times. Reply directly in Telegram and responses are automatically logged
               </p>
             </div>
           </div>
@@ -87,22 +120,15 @@ export default function Home() {
         <div className="container mx-auto px-4 sm:px-6 text-center">
           <h2 className="text-3xl sm:text-4xl md:text-5xl font-display mb-4 sm:mb-6">READY TO START?</h2>
           <p className="text-base sm:text-lg md:text-xl mb-6 sm:mb-8 text-gray-300 px-4">
-            Set up your bot in less than 5 minutes
+            Create your first AI-generated prompt database or connect your Notion workspace. Set up in minutes.
           </p>
           <SignedOut>
-            <SignUpButton mode="modal">
+            <SignUpButton mode="modal" redirectUrl="/dashboard">
               <Button variant="outline" size="lg" className="border-white text-white hover:bg-white hover:text-black text-sm sm:text-base px-6 sm:px-8">
                 GET STARTED FREE
               </Button>
             </SignUpButton>
           </SignedOut>
-          <SignedIn>
-            <Link href="/dashboard">
-              <Button variant="outline" size="lg" className="border-white text-white hover:bg-white hover:text-black text-sm sm:text-base px-6 sm:px-8">
-                GO TO DASHBOARD
-              </Button>
-            </Link>
-          </SignedIn>
         </div>
       </section>
 

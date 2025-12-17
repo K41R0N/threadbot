@@ -11,8 +11,8 @@ const bebasNeue = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "Threadbot - Notion to Telegram Automation",
-  description: "Automate sending Notion prompts to Telegram and log replies back",
+  title: "Threadbot - AI-Powered Daily Prompts to Telegram",
+  description: "Generate personalized prompts with AI or use your Notion database. Receive them daily on Telegram and log your responses automatically.",
 };
 
 export default function RootLayout({
