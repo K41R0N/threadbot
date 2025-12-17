@@ -344,12 +344,15 @@ export const appRouter = router({
 
         // SECURITY: Rate limit to prevent Telegram API abuse (10 sends per hour per user)
         const cooldownKey = `send:${ctx.userId}:${input.date}:${input.type}`;
-        const { data: lastSendRecord } = await supabase
+        const { data: lastSendRecordData } = await supabase
           .from('send_cooldowns')
           .select('last_sent_at, send_count')
           .eq('user_id', ctx.userId)
           .eq('cooldown_key', cooldownKey)
-          .single();
+          .maybeSingle();
+
+        // Type assertion for Supabase query result
+        const lastSendRecord = lastSendRecordData as { last_sent_at: string; send_count: number } | null;
 
         const now = new Date();
         const lastSent = lastSendRecord?.last_sent_at ? new Date(lastSendRecord.last_sent_at) : null;
