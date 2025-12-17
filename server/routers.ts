@@ -789,36 +789,41 @@ export const appRouter = router({
       }),
 
     // Generate verification code for Telegram linking
-    generateVerificationCode: protectedProcedure.mutation(async ({ ctx }) => {
-      const supabase = serverSupabase;
+    generateVerificationCode: protectedProcedure
+      .input(z.object({
+        timezone: z.string().optional(), // Optional timezone from browser detection
+      }).optional().default({}))
+      .mutation(async ({ ctx, input }) => {
+        const supabase = serverSupabase;
 
-      // Generate a 6-digit code
-      const code = Math.floor(100000 + Math.random() * 900000).toString();
+        // Generate a 6-digit code
+        const code = Math.floor(100000 + Math.random() * 900000).toString();
 
-      // Store code with 10-minute expiration
-      const expiresAt = new Date();
-      expiresAt.setMinutes(expiresAt.getMinutes() + 10);
+        // Store code with 10-minute expiration
+        const expiresAt = new Date();
+        expiresAt.setMinutes(expiresAt.getMinutes() + 10);
 
-      const { data, error } = await supabase
-        .from('telegram_verification_codes')
-        // @ts-expect-error Supabase v2.80.0 type inference issue
-        .insert({
-          user_id: ctx.userId,
-          code,
-          expires_at: expiresAt.toISOString(),
-        })
-        .select('code, expires_at')
-        .single();
+        const { data, error } = await supabase
+          .from('telegram_verification_codes')
+          // @ts-expect-error Supabase v2.80.0 type inference issue
+          .insert({
+            user_id: ctx.userId,
+            code,
+            timezone: input?.timezone || null, // Store detected timezone if provided
+            expires_at: expiresAt.toISOString(),
+          })
+          .select('code, expires_at')
+          .single();
 
-      if (error) {
-        throw new Error('Failed to generate verification code');
-      }
+        if (error) {
+          throw new Error('Failed to generate verification code');
+        }
 
-      return {
-        code: data.code,
-        expiresAt: data.expires_at,
-      };
-    }),
+        return {
+          code: data.code as string,
+          expiresAt: data.expires_at as string,
+        };
+      }),
 
     // Check if chat ID was linked (for polling)
     checkChatIdLinked: protectedProcedure.query(async ({ ctx }) => {

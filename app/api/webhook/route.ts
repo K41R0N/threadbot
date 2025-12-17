@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { serverSupabase } from '@/lib/supabase-server';
 import { BotService } from '@/server/services/bot';
+import { TelegramService } from '@/server/services/telegram';
 import { SafeLogger } from '@/lib/logger';
 import type { BotConfig } from '@/lib/supabase';
 import type { Database } from '@/lib/database.types';
@@ -59,7 +60,7 @@ export async function POST(request: NextRequest) {
       // Look for active verification code
       let verificationQuery = supabase
         .from('telegram_verification_codes')
-        .select('id, user_id, code, expires_at')
+        .select('id, user_id, code, expires_at, timezone')
         .is('used_at', null)
         .gt('expires_at', new Date().toISOString());
 
@@ -73,7 +74,7 @@ export async function POST(request: NextRequest) {
       const { data: verificationData } = await verificationQuery.limit(1);
 
       if (verificationData && verificationData.length > 0) {
-        const verification = verificationData[0];
+        const verification = verificationData[0] as { id: string; user_id: string; code: string; expires_at: string; timezone: string | null };
         
         // Mark code as used and link chat ID
         await supabase
@@ -101,6 +102,9 @@ export async function POST(request: NextRequest) {
           .eq('user_id', verification.user_id)
           .single();
 
+        // Use detected timezone from verification code, or fall back to default
+        const detectedTimezone = verification.timezone || 'America/New_York';
+
         const configUpdate: Database['public']['Tables']['bot_configs']['Update'] = {
           telegram_chat_id: chatId,
           // Auto-activate if user has prompts
@@ -108,7 +112,7 @@ export async function POST(request: NextRequest) {
           prompt_source: hasPrompts ? 'agent' : 'notion',
           // Set defaults if creating new config
           ...(existingConfig ? {} : {
-            timezone: 'America/New_York',
+            timezone: detectedTimezone, // Use detected timezone from browser
             morning_time: '09:00',
             evening_time: '18:00',
             notion_token: null,

@@ -62,7 +62,18 @@ export default function SettingsPage() {
     },
   });
 
-  const setupWebhookForUser = trpc.bot.setupWebhookForUser.useMutation();
+  const setupWebhookForUser = trpc.bot.setupWebhookForUser.useMutation({
+    onSuccess: (data) => {
+      if (data.success) {
+        toast.success('Webhook configured successfully!');
+      } else {
+        toast.warning(`Webhook setup: ${data.message}`);
+      }
+    },
+    onError: (error) => {
+      toast.error(`Failed to setup webhook: ${error.message}`);
+    },
+  });
 
   const testTelegramPrompt = trpc.bot.testTelegramPrompt.useMutation({
     onSuccess: (data) => {
@@ -238,10 +249,22 @@ export default function SettingsPage() {
       // Update webhook when chat ID changes (to ensure routing works)
       try {
         await updateConfig.mutateAsync(updateData);
-        await setupWebhookForUser.mutateAsync();
+        // Setup webhook after successful config update
+        // Errors are handled by mutation callbacks, but we catch here to prevent crashes
+        try {
+          await setupWebhookForUser.mutateAsync();
+        } catch (webhookError) {
+          // Error already handled by onError callback, but log for debugging
+          console.error('Webhook setup error:', webhookError);
+          // Don't throw - config update succeeded, webhook can be retried later
+          toast.warning('Settings saved, but webhook setup failed. You can retry webhook setup from the test button.');
+        }
         return;
       } catch (error) {
-        throw error;
+        // Config update failed - error handled by updateConfig.onError callback
+        console.error('Config update error:', error);
+        // Don't rethrow - let the mutation's error handler deal with it
+        return;
       }
     }
 

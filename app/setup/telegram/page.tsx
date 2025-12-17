@@ -63,7 +63,8 @@ export default function SetupTelegramPage() {
   }, [linkStatus, router]);
 
   const handleOpenTelegram = () => {
-    generateCode.mutate();
+    // Pass detected timezone to the mutation
+    generateCode.mutate({ timezone: detectedTimezone });
     // Open Telegram app or web
     const telegramUrl = `https://t.me/${BOT_USERNAME}`;
     window.open(telegramUrl, '_blank');
