@@ -115,50 +115,26 @@ export default function DatabasePage({ params }: { params: Promise<{ monthYear: 
   const dates = Object.keys(promptsByDate).sort();
 
   return (
-    <div className="min-h-screen bg-white">
-      {/* Header */}
-      <div className="border-b-2 border-black">
-        <div className="container mx-auto px-4 py-6">
-          <div className="flex justify-between items-center mb-4">
-            <div className="flex items-center gap-4">
-              <Button
-                variant="outline"
-                onClick={() => router.push('/dashboard')}
-              >
-                ← BACK
-              </Button>
-              <h1 className="text-4xl font-display">{monthName}</h1>
-            </div>
-
-            <div className="flex gap-3">
-              <Button variant="outline" onClick={handleExportCSV}>
-                EXPORT CSV
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => router.push('/settings')}
-              >
-                SETTINGS
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => router.push('/dashboard')}
-              >
-                DASHBOARD
-              </Button>
-            </div>
-          </div>
-
-          {/* Breadcrumb */}
-          <div className="text-sm text-gray-600">
-            <span className="cursor-pointer hover:text-black" onClick={() => router.push('/dashboard')}>Dashboard</span>
-            <span className="mx-2">→</span>
-            <span>{monthName}</span>
-          </div>
-        </div>
-      </div>
-
-      <div className="container mx-auto px-4 py-8">
+    <AuthenticatedLayout
+      pageTitle={monthName}
+      breadcrumbs={[
+        { label: 'Dashboard', href: '/dashboard' },
+        { label: monthName },
+      ]}
+      showBackButton={true}
+      backButtonHref="/dashboard"
+      rightActions={
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={handleExportCSV}
+          className="text-xs sm:text-sm h-8 px-2 sm:px-3 font-display hover:bg-gray-100"
+        >
+          Export CSV
+        </Button>
+      }
+    >
+      <div className="container mx-auto px-4 sm:px-6 py-6 sm:py-8">
         {!prompts || prompts.length === 0 ? (
           <div className="border-2 border-black p-12 text-center">
             <p className="text-xl text-gray-600 mb-4">No prompts found for this month</p>
@@ -326,6 +302,6 @@ export default function DatabasePage({ params }: { params: Promise<{ monthYear: 
           </div>
         )}
       </div>
-    </div>
+    </AuthenticatedLayout>
   );
 }

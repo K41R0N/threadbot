@@ -10,6 +10,7 @@ import type { UserPrompt } from '@/lib/supabase-agent';
 import type { BotConfig } from '@/lib/supabase';
 import { PromptCalendar } from '@/components/calendar/prompt-calendar';
 import { PromptEditPanel } from '@/components/calendar/prompt-edit-panel';
+import { AuthenticatedLayout } from '@/components/layout/authenticated-layout';
 
 // Get bot username from environment or use default
 const BOT_USERNAME = process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME || 'threadbot_bot';
@@ -273,55 +274,28 @@ export default function DatabaseRangePage({
   const dates = Object.keys(promptsByDate).sort();
 
   return (
-    <div className="min-h-screen bg-white">
-      {/* Header */}
-      <div className="border-b-2 border-black">
-        <div className="container mx-auto px-4 py-6">
-          <div className="flex justify-between items-center mb-4">
-            <div className="flex items-center gap-4">
-              <Button
-                variant="outline"
-                onClick={() => router.push('/dashboard')}
-              >
-                ← BACK
-              </Button>
-              <div>
-                <h1 className="text-4xl font-display">PROMPT DATABASE</h1>
-                <p className="text-sm text-gray-600 mt-1">{rangeTitle}</p>
-              </div>
-            </div>
-
-            <div className="flex gap-3">
-              <Button variant="outline" onClick={handleExportCSV}>
-                EXPORT CSV
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => router.push('/settings')}
-              >
-                SETTINGS
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => router.push('/dashboard')}
-              >
-                DASHBOARD
-              </Button>
-            </div>
-          </div>
-
-          {/* Breadcrumb */}
-          <div className="text-sm text-gray-600">
-            <span className="cursor-pointer hover:text-black" onClick={() => router.push('/dashboard')}>Dashboard</span>
-            <span className="mx-2">→</span>
-            <span>Prompt Database</span>
-            <span className="mx-2">→</span>
-            <span>{startDate} to {endDate}</span>
-          </div>
-        </div>
-      </div>
-
-      <div className="container mx-auto px-4 py-8">
+    <AuthenticatedLayout
+      pageTitle="Prompt Database"
+      pageSubtitle={rangeTitle}
+      breadcrumbs={[
+        { label: 'Dashboard', href: '/dashboard' },
+        { label: 'Prompt Database' },
+        { label: `${startDate} to ${endDate}` },
+      ]}
+      showBackButton={true}
+      backButtonHref="/dashboard"
+      rightActions={
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={handleExportCSV}
+          className="text-xs sm:text-sm h-8 px-2 sm:px-3 font-display hover:bg-gray-100"
+        >
+          Export CSV
+        </Button>
+      }
+    >
+      <div className="container mx-auto px-4 sm:px-6 py-6 sm:py-8">
         {/* Telegram Connection Banner */}
         {botConfig && (!botConfig.telegram_chat_id || !botConfig.is_active) && (
           <div className="border-2 border-black p-6 mb-8 bg-yellow-50">
@@ -539,6 +513,6 @@ export default function DatabaseRangePage({
           </div>
         </div>
       )}
-    </div>
+    </AuthenticatedLayout>
   );
 }

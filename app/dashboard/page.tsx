@@ -372,27 +372,27 @@ export default function DashboardPage() {
           </div>
 
           {!hasNotionDatabase && agentDatabases.length === 0 ? (
-            <div className="border-2 border-dashed border-gray-300 rounded-lg p-12 text-center">
+            <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 sm:p-12 text-center bg-gray-50/50">
               <div className="max-w-md mx-auto">
-                <div className="text-6xl mb-4">🤖</div>
-                <h3 className="text-2xl font-display mb-3">NO DATABASES YET</h3>
-                <p className="text-gray-600 mb-6">
+                <div className="text-5xl sm:text-6xl mb-4">🤖</div>
+                <h3 className="text-xl sm:text-2xl font-display mb-3">NO DATABASES YET</h3>
+                <p className="text-sm sm:text-base text-gray-600 mb-6">
                   Create your first AI-generated prompt calendar. Our AI will analyze your brand and generate 60 personalized prompts (30 mornings + 30 evenings).
                 </p>
-                <Button onClick={handleCreateNew} className="mb-4">
+                <Button onClick={handleCreateNew} className="mb-6 text-sm sm:text-base">
                   CREATE YOUR FIRST DATABASE →
                 </Button>
-                <div className="text-sm text-gray-500 mt-6 space-y-2">
+                <div className="text-xs sm:text-sm text-gray-500 space-y-2">
                   <div className="flex items-center justify-center gap-2">
-                    <span>✓</span>
+                    <span className="text-green-600">✓</span>
                     <span>AI analyzes your brand voice</span>
                   </div>
                   <div className="flex items-center justify-center gap-2">
-                    <span>✓</span>
+                    <span className="text-green-600">✓</span>
                     <span>Generates themed weekly prompts</span>
                   </div>
                   <div className="flex items-center justify-center gap-2">
-                    <span>✓</span>
+                    <span className="text-green-600">✓</span>
                     <span>Auto-delivers to Telegram daily</span>
                   </div>
                 </div>
@@ -490,34 +490,34 @@ export default function DashboardPage() {
 
         {/* How It Works */}
         {!hasNotionDatabase && agentDatabases.length === 0 && (
-          <div className="border-2 border-black p-8 mt-8">
-            <h2 className="text-3xl font-display mb-6">HOW IT WORKS</h2>
-            <div className="space-y-6">
-              <div className="flex gap-4">
-                <div className="font-display text-3xl">1</div>
+          <div className="border-2 border-black p-6 sm:p-8 mt-6 sm:mt-8 bg-gray-50/30">
+            <h2 className="text-2xl sm:text-3xl font-display mb-6">HOW IT WORKS</h2>
+            <div className="space-y-6 sm:space-y-8">
+              <div className="flex gap-4 sm:gap-6">
+                <div className="font-display text-2xl sm:text-3xl flex-shrink-0 text-gray-400">1</div>
                 <div>
-                  <h3 className="font-display text-xl mb-2">DEFINE YOUR CONTEXT</h3>
-                  <p className="text-gray-600">
+                  <h3 className="font-display text-lg sm:text-xl mb-2">DEFINE YOUR CONTEXT</h3>
+                  <p className="text-sm sm:text-base text-gray-600">
                     Add your brand URLs, voice, and themes. AI analyzes your content.
                   </p>
                 </div>
               </div>
 
-              <div className="flex gap-4">
-                <div className="font-display text-3xl">2</div>
+              <div className="flex gap-4 sm:gap-6">
+                <div className="font-display text-2xl sm:text-3xl flex-shrink-0 text-gray-400">2</div>
                 <div>
-                  <h3 className="font-display text-xl mb-2">GENERATE PROMPTS</h3>
-                  <p className="text-gray-600">
+                  <h3 className="font-display text-lg sm:text-xl mb-2">GENERATE PROMPTS</h3>
+                  <p className="text-sm sm:text-base text-gray-600">
                     AI creates 4 weekly themes and generates 60+ daily prompts.
                   </p>
                 </div>
               </div>
 
-              <div className="flex gap-4">
-                <div className="font-display text-3xl">3</div>
+              <div className="flex gap-4 sm:gap-6">
+                <div className="font-display text-2xl sm:text-3xl flex-shrink-0 text-gray-400">3</div>
                 <div>
-                  <h3 className="font-display text-xl mb-2">EDIT & CONNECT</h3>
-                  <p className="text-gray-600">
+                  <h3 className="font-display text-lg sm:text-xl mb-2">EDIT & CONNECT</h3>
+                  <p className="text-sm sm:text-base text-gray-600">
                     Edit prompts in a table view, export to CSV, or connect to your Telegram bot.
                   </p>
                 </div>

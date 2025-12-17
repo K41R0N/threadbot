@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { trpc } from '@/lib/trpc';
 import { toast } from 'sonner';
 import { useLocalStoragePersistence } from '@/lib/hooks/use-local-storage-persistence';
+import { AuthenticatedLayout } from '@/components/layout/authenticated-layout';
 
 
 interface AnalysisResult {
@@ -239,62 +240,32 @@ export default function CreateDatabasePage() {
   }
 
   return (
-    <div className="min-h-screen bg-white">
-      {/* Header with Navigation */}
-      <div className="border-b-2 border-black">
-        <div className="container mx-auto px-4 py-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-4">
-              <Button
-                variant="outline"
-                onClick={() => router.push('/dashboard')}
-                disabled={step === 'generating'}
-              >
-                ← BACK
-              </Button>
-              <h1 className="text-4xl font-display">CREATE AI DATABASE</h1>
-            </div>
-            <div className="flex gap-3">
-              <Button
-                variant="outline"
-                onClick={() => router.push('/settings')}
-              >
-                SETTINGS
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => router.push('/dashboard')}
-              >
-                DASHBOARD
-              </Button>
-            </div>
+    <AuthenticatedLayout
+      pageTitle="Create AI Database"
+      breadcrumbs={[
+        { label: 'Dashboard', href: '/dashboard' },
+        { label: 'Create Database' },
+      ]}
+      showBackButton={true}
+      backButtonHref="/dashboard"
+      backButtonDisabled={step === 'generating'}
+      headerExtra={
+        <div className="flex items-center gap-2">
+          <div className={`px-2 sm:px-3 py-1 text-xs sm:text-sm font-display ${step === 'context' ? 'bg-black text-white' : 'bg-gray-200 text-gray-600'}`}>
+            1. CONTEXT
           </div>
-
-          {/* Breadcrumb */}
-          <div className="text-sm text-gray-600 mb-4">
-            <span className="cursor-pointer hover:text-black" onClick={() => router.push('/dashboard')}>Dashboard</span>
-            <span className="mx-2">→</span>
-            <span>Create Database</span>
+          <div className="text-gray-400">→</div>
+          <div className={`px-2 sm:px-3 py-1 text-xs sm:text-sm font-display ${step === 'model' ? 'bg-black text-white' : 'bg-gray-200 text-gray-600'}`}>
+            2. MODEL
           </div>
-
-          {/* Progress Indicator */}
-          <div className="mt-4 flex items-center gap-2">
-            <div className={`px-3 py-1 text-sm font-display ${step === 'context' ? 'bg-black text-white' : 'bg-gray-200'}`}>
-              1. CONTEXT
-            </div>
-            <div className="text-gray-400">→</div>
-            <div className={`px-3 py-1 text-sm font-display ${step === 'model' ? 'bg-black text-white' : 'bg-gray-200'}`}>
-              2. MODEL
-            </div>
-            <div className="text-gray-400">→</div>
-            <div className={`px-3 py-1 text-sm font-display ${step === 'generating' ? 'bg-black text-white' : 'bg-gray-200'}`}>
-              3. GENERATE
-            </div>
+          <div className="text-gray-400">→</div>
+          <div className={`px-2 sm:px-3 py-1 text-xs sm:text-sm font-display ${step === 'generating' ? 'bg-black text-white' : 'bg-gray-200 text-gray-600'}`}>
+            3. GENERATE
           </div>
         </div>
-      </div>
-
-      <div className="container mx-auto px-4 py-12 max-w-4xl">
+      }
+    >
+      <div className="container mx-auto px-4 sm:px-6 py-8 sm:py-12 max-w-4xl">
         {/* Credit Warning Modal */}
         {showCreditWarning && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
@@ -647,6 +618,6 @@ export default function CreateDatabasePage() {
           </div>
         )}
       </div>
-    </div>
+    </AuthenticatedLayout>
   );
 }

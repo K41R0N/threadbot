@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useUser } from '@clerk/nextjs';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,8 +16,25 @@ type SettingsTab = 'general' | 'telegram' | 'schedule' | 'notion' | 'advanced';
 
 export default function SettingsPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { isSignedIn, isLoaded } = useUser();
-  const [activeTab, setActiveTab] = useState<SettingsTab>('general');
+  
+  // Initialize activeTab from URL param if present, otherwise default to 'general'
+  const [activeTab, setActiveTab] = useState<SettingsTab>(() => {
+    const tabParam = searchParams.get('tab');
+    if (tabParam && ['general', 'telegram', 'schedule', 'notion', 'advanced'].includes(tabParam)) {
+      return tabParam as SettingsTab;
+    }
+    return 'general';
+  });
+
+  // Update tab when URL param changes (e.g., from redirects)
+  useEffect(() => {
+    const tabParam = searchParams.get('tab');
+    if (tabParam && ['general', 'telegram', 'schedule', 'notion', 'advanced'].includes(tabParam)) {
+      setActiveTab(tabParam as SettingsTab);
+    }
+  }, [searchParams]);
 
   const { data: config, isLoading: configLoading, refetch: refetchConfig } = trpc.bot.getConfig.useQuery(undefined, {
     enabled: isSignedIn,
