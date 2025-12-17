@@ -523,6 +523,9 @@ export default function DatabaseRangePage({
                   </Button>
                   <Button
                     onClick={() => {
+                      // Regenerate code and open Telegram (in case code expired)
+                      const detectedTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+                      generateCode.mutate({ timezone: detectedTimezone });
                       const telegramUrl = `https://t.me/${BOT_USERNAME}`;
                       window.open(telegramUrl, '_blank');
                     }}

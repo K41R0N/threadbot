@@ -249,20 +249,14 @@ export const appRouter = router({
         .eq('user_id', ctx.userId)
         .single();
 
-      if (error || !config) {
-        return {
-          success: false,
-          message: 'Bot configuration not found. Please configure your Telegram chat ID first.',
-        };
-      }
-
       // Type assertion for Supabase query result
       const configData = config as { telegram_chat_id: string | null; user_id: string } | null;
 
-      if (!configData || !configData.telegram_chat_id) {
+      // If config doesn't exist or chat ID is missing, return helpful error
+      if (error || !configData || !configData.telegram_chat_id) {
         return {
           success: false,
-          message: 'Telegram chat ID not configured. Please set your chat ID first.',
+          message: 'Telegram chat ID not configured. Please connect your Telegram account first using the verification code.',
         };
       }
 

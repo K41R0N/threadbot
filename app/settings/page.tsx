@@ -16,7 +16,7 @@ export default function SettingsPage() {
   const router = useRouter();
   const { isSignedIn, isLoaded } = useUser();
 
-  const { data: config, isLoading: configLoading } = trpc.bot.getConfig.useQuery(undefined, {
+  const { data: config, isLoading: configLoading, refetch: refetchConfig } = trpc.bot.getConfig.useQuery(undefined, {
     enabled: isSignedIn,
   });
 
@@ -32,8 +32,50 @@ export default function SettingsPage() {
   const [shouldClearNotionToken, setShouldClearNotionToken] = useState(false);
   const [testLogs, setTestLogs] = useState<string[]>([]);
   const [showTestLogs, setShowTestLogs] = useState(false);
+  const [verificationCode, setVerificationCode] = useState<string | null>(null);
+  const [isWaitingForLink, setIsWaitingForLink] = useState(false);
   const hasInitialized = useRef(false);
   const shouldSaveToStorage = useRef(false); // Track when to start saving to localStorage
+  const hasRestoredFromStorage = useRef(false); // Track if we restored from localStorage
+
+  // Get bot username from environment
+  const BOT_USERNAME = process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME || 'threadbot_bot';
+
+  // Generate verification code mutation
+  const generateCode = trpc.bot.generateVerificationCode.useMutation({
+    onSuccess: (data) => {
+      setVerificationCode(data.code);
+      setIsWaitingForLink(true);
+      toast.success('Verification code generated! Say "hello" to the bot on Telegram.');
+    },
+    onError: (error) => {
+      toast.error(`Failed to generate code: ${error.message}`);
+      console.error('Verification code generation error:', error);
+    },
+  });
+
+  // Poll to check if chat ID was linked
+  const { data: linkStatus } = trpc.bot.checkChatIdLinked.useQuery(undefined, {
+    enabled: isWaitingForLink && !!verificationCode,
+    refetchInterval: 2000, // Check every 2 seconds
+  });
+
+  // Handle successful linking
+  useEffect(() => {
+    if (linkStatus?.linked) {
+      toast.success('Telegram connected successfully!');
+      setVerificationCode(null);
+      setIsWaitingForLink(false);
+      // Refetch config to get updated chat ID and update state
+      refetchConfig().then((result) => {
+        const refetchedConfig = result.data as BotConfig | null | undefined;
+        if (refetchedConfig) {
+          // Update telegramChatId state to reflect the linked account
+          setTelegramChatId(refetchedConfig.telegram_chat_id || '');
+        }
+      });
+    }
+  }, [linkStatus, refetchConfig]);
 
   // Persist form state to localStorage (only for user edits, not server data)
   // Note: enabled is always true to allow restoration, but we control saving via shouldSave
@@ -64,6 +106,11 @@ export default function SettingsPage() {
           // Check if any values were restored
           const hasRestoredValues = Object.values(restored).some(v => v !== '' && v !== null && v !== undefined);
           if (hasRestoredValues) {
+            hasRestoredFromStorage.current = true;
+            // Mark as initialized to prevent server initialization from overwriting restored values
+            hasInitialized.current = true;
+            // Enable saving to localStorage after restoration
+            shouldSaveToStorage.current = true;
             toast.info('Your unsaved changes have been restored');
           }
         }
@@ -75,7 +122,8 @@ export default function SettingsPage() {
 
   useEffect(() => {
     // Initialize from server config or defaults
-    if (!hasInitialized.current && !configLoading) {
+    // Skip if we already restored from localStorage (to prevent overwriting user edits)
+    if (!hasInitialized.current && !configLoading && !hasRestoredFromStorage.current) {
       if (config) {
         const botConfig = config as BotConfig;
         setDatabaseId(botConfig.notion_database_id || '');
@@ -120,7 +168,12 @@ export default function SettingsPage() {
       if (data.success) {
         toast.success('Webhook configured successfully!');
       } else {
-        toast.warning(`Webhook setup: ${data.message}`);
+        // Provide helpful guidance based on error message
+        if (data.message.includes('not configured') || data.message.includes('not found')) {
+          toast.warning('Please connect your Telegram account first using the verification code above.');
+        } else {
+          toast.warning(`Webhook setup: ${data.message}`);
+        }
       }
     },
     onError: (error) => {
@@ -265,7 +318,7 @@ export default function SettingsPage() {
       promptSource: 'notion' | 'agent';
       notionToken?: string | null;
       notionDatabaseId?: string | null;
-      telegramChatId?: string;
+      telegramChatId?: string | null; // Allow null to clear chat ID
     };
 
     const updateData: ConfigUpdate = {
@@ -296,14 +349,20 @@ export default function SettingsPage() {
       }
     }
 
+    // Handle Telegram Chat ID (manual entry or clearing)
     const currentChatId = botConfig ? (botConfig as BotConfig).telegram_chat_id : '';
+    // Allow both setting and clearing (empty string) of chat ID
     if (telegramChatId !== (currentChatId || '')) {
-      updateData.telegramChatId = telegramChatId;
-      // Update webhook when chat ID changes (to ensure routing works)
-      try {
-        await updateConfig.mutateAsync(updateData);
-        // Setup webhook after successful config update
-        // Errors are handled by mutation callbacks, but we catch here to prevent crashes
+      // Set to null if empty string (to clear), otherwise set the value
+      updateData.telegramChatId = telegramChatId.trim() === '' ? null : telegramChatId;
+    }
+
+    // Always try to update config (creates if doesn't exist, updates if exists)
+    try {
+      await updateConfig.mutateAsync(updateData);
+      
+      // If Telegram Chat ID was set, try to setup webhook
+      if (updateData.telegramChatId) {
         try {
           await setupWebhookForUser.mutateAsync();
         } catch (webhookError) {
@@ -312,19 +371,11 @@ export default function SettingsPage() {
           // Don't throw - config update succeeded, webhook can be retried later
           toast.warning('Settings saved, but webhook setup failed. You can retry webhook setup from the test button.');
         }
-        return;
-      } catch (error) {
-        // Config update failed - error handled by updateConfig.onError callback
-        console.error('Config update error:', error);
-        // Don't rethrow - let the mutation's error handler deal with it
-        return;
       }
-    }
-
-    try {
-      await updateConfig.mutateAsync(updateData);
     } catch (error) {
-      console.error('Settings update error:', error);
+      // Config update failed - error handled by updateConfig.onError callback
+      console.error('Config update error:', error);
+      // Don't rethrow - let the mutation's error handler deal with it
     }
   };
 
@@ -449,24 +500,117 @@ export default function SettingsPage() {
             <div className="space-y-6">
               <div className="border-2 border-gray-200 p-4 bg-gray-50">
                 <p className="text-sm text-gray-600 mb-2">
-                  <strong>Shared Bot:</strong> All users share the same Telegram bot (@Threadbot). 
-                  You only need to provide your Chat ID to receive messages.
+                  <strong>Shared Bot:</strong> All users share the same Telegram bot. 
+                  Connect your account automatically using the verification code below.
                 </p>
               </div>
 
-              <div>
-                <label className="block font-display text-sm mb-2">YOUR TELEGRAM CHAT ID</label>
-                <Input
-                  type="text"
-                  placeholder="123456789"
-                  value={telegramChatId}
-                  onChange={(e) => setTelegramChatId(e.target.value)}
-                  required
-                />
-                <p className="text-xs text-gray-500 mt-2">
-                  Get your Chat ID from <a href="https://t.me/userinfobot" target="_blank" rel="noopener noreferrer" className="underline">@userinfobot</a>
-                </p>
-              </div>
+              {telegramChatId ? (
+                <div className="border-2 border-green-200 bg-green-50 p-4 rounded">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-2xl">✓</span>
+                    <span className="font-display text-lg">Telegram Connected</span>
+                  </div>
+                  <p className="text-sm text-gray-600">
+                    Chat ID: <code className="bg-white px-2 py-1 rounded">{telegramChatId}</code>
+                  </p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setTelegramChatId('');
+                      generateCode.mutate({ timezone: Intl.DateTimeFormat().resolvedOptions().timeZone });
+                    }}
+                    className="mt-3"
+                  >
+                    Reconnect Telegram
+                  </Button>
+                </div>
+              ) : (
+                <div>
+                  <div className="mb-4">
+                    <h3 className="font-display text-lg mb-2">AUTOMATIC CONNECTION</h3>
+                    <p className="text-sm text-gray-600 mb-4">
+                      Click the button below to generate a verification code and connect your Telegram account automatically.
+                    </p>
+                    {!verificationCode && (
+                      <Button
+                        type="button"
+                        onClick={() => {
+                          const detectedTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+                          generateCode.mutate({ timezone: detectedTimezone });
+                        }}
+                        disabled={generateCode.isPending}
+                        size="lg"
+                        className="w-full"
+                      >
+                        {generateCode.isPending ? 'GENERATING CODE...' : '📱 GENERATE VERIFICATION CODE'}
+                      </Button>
+                    )}
+                  </div>
+
+                  {verificationCode && (
+                    <div className="border-2 border-black p-6 bg-gray-50">
+                      <div className="text-center mb-4">
+                        <div className="text-5xl font-display mb-3 tracking-wider border-4 border-black p-4 bg-white">
+                          {verificationCode}
+                        </div>
+                        <p className="text-lg font-display mb-2">YOUR VERIFICATION CODE</p>
+                        <p className="text-sm text-gray-600 mb-4">
+                          Send this code to <strong>@{BOT_USERNAME}</strong> on Telegram, or just say "hello"
+                        </p>
+                      </div>
+
+                      {isWaitingForLink && (
+                        <div className="text-center mb-4">
+                          <div className="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-black mb-2"></div>
+                          <p className="text-sm text-gray-600">Waiting for you to send the code...</p>
+                        </div>
+                      )}
+
+                      <div className="flex gap-3">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => {
+                            const telegramUrl = `https://t.me/${BOT_USERNAME}`;
+                            window.open(telegramUrl, '_blank');
+                          }}
+                          className="flex-1"
+                        >
+                          OPEN TELEGRAM
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => {
+                            setVerificationCode(null);
+                            setIsWaitingForLink(false);
+                          }}
+                        >
+                          CANCEL
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="border-t-2 border-gray-200 pt-6 mt-6">
+                    <p className="text-sm text-gray-600 mb-4 text-center">OR</p>
+                    <div>
+                      <label className="block font-display text-sm mb-2">MANUAL ENTRY (Chat ID)</label>
+                      <Input
+                        type="text"
+                        placeholder="123456789"
+                        value={telegramChatId}
+                        onChange={(e) => setTelegramChatId(e.target.value)}
+                      />
+                      <p className="text-xs text-gray-500 mt-2">
+                        Get your Chat ID from <a href="https://t.me/userinfobot" target="_blank" rel="noopener noreferrer" className="underline">@userinfobot</a>
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Test Button */}
               <div className="border-t-2 border-gray-200 pt-6">
