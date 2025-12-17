@@ -361,10 +361,29 @@ export const agentRouter = router({
   generatePrompts: protectedProcedure
     .input(
       z.object({
-        startDate: z.string(),
-        endDate: z.string(),
+        startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Invalid date format (expected YYYY-MM-DD)'),
+        endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Invalid date format (expected YYYY-MM-DD)'),
         useClaude: z.boolean().default(false),
         bypassWeeklyLimit: z.boolean().default(false), // If true, spend 1 credit to bypass DeepSeek cooldown
+      }).refine((data) => {
+        // SECURITY: Prevent API cost explosion by limiting date ranges
+        const start = new Date(data.startDate);
+        const end = new Date(data.endDate);
+        const days = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+
+        if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+          throw new Error('Invalid date values');
+        }
+
+        if (days < 0) {
+          throw new Error('End date must be after start date');
+        }
+
+        if (days > 31) {
+          throw new Error('Date range cannot exceed 31 days (1 month maximum)');
+        }
+
+        return true;
       })
     )
     .mutation(async ({ ctx, input }) => {

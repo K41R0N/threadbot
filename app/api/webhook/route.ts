@@ -52,11 +52,62 @@ export async function POST(request: NextRequest) {
     // Check if this is a verification code (6-digit number or "hello" + code)
     const verificationCodeMatch = messageText.match(/(\d{6})/);
     const isHello = messageText.includes('hello') || messageText.includes('hi') || messageText.includes('hey');
-    
+
     // Try to find verification code first
     if (verificationCodeMatch || isHello) {
       const code = verificationCodeMatch ? verificationCodeMatch[1] : null;
-      
+
+      // SECURITY: Rate limit verification attempts to prevent brute-force attacks
+      const { data: attemptRecord } = await supabase
+        .from('verification_attempts')
+        .select('attempt_count, last_attempt_at, locked_until')
+        .eq('chat_id', chatId)
+        .single();
+
+      const now = new Date();
+      let attemptCount = attemptRecord?.attempt_count || 0;
+      const lastAttempt = attemptRecord?.last_attempt_at ? new Date(attemptRecord.last_attempt_at) : null;
+      const lockedUntil = attemptRecord?.locked_until ? new Date(attemptRecord.locked_until) : null;
+
+      // Check if chat is locked out
+      if (lockedUntil && now < lockedUntil) {
+        const minutesRemaining = Math.ceil((lockedUntil.getTime() - now.getTime()) / 60000);
+        const telegram = new TelegramService();
+        await telegram.sendMessage(
+          chatId,
+          `⏳ *Too Many Attempts*\n\nYour account is temporarily locked due to too many verification attempts\\.\n\nPlease wait *${minutesRemaining} minutes* before trying again\\.\n\n💡 Tip: Generate a fresh verification code from your dashboard\\.`
+        );
+        SafeLogger.warn('Verification attempt during lockout', { chatId, lockedUntil, code: code || 'hello' });
+        return NextResponse.json({ ok: true });
+      }
+
+      // Reset counter if last attempt was over 1 hour ago
+      if (lastAttempt && (now.getTime() - lastAttempt.getTime()) > 3600000) {
+        attemptCount = 0;
+      }
+
+      // Lock account after 10 failed attempts
+      if (attemptCount >= 10) {
+        const lockoutUntil = new Date(now.getTime() + 3600000); // 1 hour lockout
+        await supabase
+          .from('verification_attempts')
+          // @ts-expect-error Supabase v2.80.0 type inference issue
+          .upsert({
+            chat_id: chatId,
+            attempt_count: attemptCount + 1,
+            last_attempt_at: now.toISOString(),
+            locked_until: lockoutUntil.toISOString(),
+          });
+
+        const telegram = new TelegramService();
+        await telegram.sendMessage(
+          chatId,
+          `🔒 *Account Locked*\n\nToo many failed verification attempts\\. Your account is locked for *1 hour*\\.\n\n💡 After the lockout:\n1\\. Generate a new verification code from your dashboard\n2\\. Send the code immediately \\(codes expire in 10 minutes\\)\n\nNeed help? Check your dashboard for support\\.`
+        );
+        SafeLogger.warn('Account locked due to failed verification attempts', { chatId, attemptCount: attemptCount + 1 });
+        return NextResponse.json({ ok: true });
+      }
+
       // Look for active verification code
       // Note: Select timezone if it exists, but handle gracefully if column doesn't exist yet
       let verificationQuery = supabase
@@ -235,6 +286,12 @@ export async function POST(request: NextRequest) {
           code: code || 'hello',
         });
 
+        // SECURITY: Reset attempt counter on successful verification
+        await supabase
+          .from('verification_attempts')
+          .delete()
+          .eq('chat_id', chatId);
+
         return NextResponse.json({ ok: true });
       } else {
         // No matching verification code found
@@ -245,34 +302,44 @@ export async function POST(request: NextRequest) {
           hasCode: !!code,
         });
 
+        // SECURITY: Increment failed attempt counter
+        await supabase
+          .from('verification_attempts')
+          // @ts-expect-error Supabase v2.80.0 type inference issue
+          .upsert({
+            chat_id: chatId,
+            attempt_count: attemptCount + 1,
+            last_attempt_at: now.toISOString(),
+          });
+
         // If message looks like a verification code but doesn't match, send helpful message
         // Don't treat it as a reply to a prompt
         if (verificationCodeMatch || isHello) {
           const telegram = new TelegramService();
-          
+
           // Check if user is already linked
           const { data: existingConfig } = await supabase
             .from('bot_configs')
             .select('user_id')
             .eq('telegram_chat_id', chatId)
-            .single();
-          
+            .maybeSingle();
+
           let errorMessage = '';
-          
+
           if (verificationCodeMatch) {
             if (existingConfig) {
-              errorMessage = `✅ *You're Already Linked\\!*\n\nYour account is already connected\\. If you want to verify again, please generate a new code from your Threadbot dashboard\\.\n\nThe code "${code}" is either expired, already used, or incorrect\\.`;
+              errorMessage = `✅ *You're Already Linked\\!*\n\nYour account is already connected\\. If you want to verify again, please generate a new code from your Threadbot dashboard\\.\n\nThe code "${code}" is either expired, already used, or incorrect\\.\n\nAttempt ${attemptCount + 1} of 10\\.`;
             } else {
-              errorMessage = `❌ *Verification Code Not Found*\n\nThe code "${code}" is either:\n\n• Expired \\(codes expire after 10 minutes\\)\n• Already used\n• Incorrect\n\nPlease generate a new code from your Threadbot dashboard\\.`;
+              errorMessage = `❌ *Verification Code Not Found*\n\nThe code "${code}" is either:\n\n• Expired \\(codes expire after 10 minutes\\)\n• Already used\n• Incorrect\n\nPlease generate a new code from your Threadbot dashboard\\.\n\nAttempt ${attemptCount + 1} of 10\\. Account locks after 10 failed attempts\\.`;
             }
           } else if (isHello) {
             if (existingConfig) {
-              errorMessage = `✅ *You're Already Linked\\!*\n\nYour account is already connected\\. If you want to verify again, please generate a new code from your Threadbot dashboard\\.`;
+              errorMessage = `✅ *You're Already Linked\\!*\n\nYour account is already connected\\. If you want to verify again, please generate a new code from your Threadbot dashboard\\.\n\nAttempt ${attemptCount + 1} of 10\\.`;
             } else {
-              errorMessage = `❌ *No Active Verification Code*\n\nPlease generate a verification code from your Threadbot dashboard first\\.\n\nOr send your 6\\-digit code directly\\.`;
+              errorMessage = `❌ *No Active Verification Code*\n\nPlease generate a verification code from your Threadbot dashboard first\\.\n\nOr send your 6\\-digit code directly\\.\n\nAttempt ${attemptCount + 1} of 10\\.`;
             }
           }
-          
+
           try {
             await telegram.sendMessage(chatId, errorMessage);
           } catch (telegramError: any) {
@@ -281,7 +348,7 @@ export async function POST(request: NextRequest) {
               chatId,
             });
           }
-          
+
           return NextResponse.json({ ok: true });
         }
       }
