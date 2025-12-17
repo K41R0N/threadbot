@@ -79,10 +79,10 @@ export async function POST(request: NextRequest) {
       if (verificationError) {
         SafeLogger.error('Failed to query verification codes', {
           error: verificationError.message,
-          code: verificationError.code,
+          errorCode: verificationError.code,
           details: verificationError.details,
           chatId,
-          code: code || 'hello',
+          verificationCode: code || 'hello',
         });
         // Continue to normal flow - don't block on verification code lookup errors
       }

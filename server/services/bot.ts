@@ -128,13 +128,16 @@ export class BotService {
       const escapedTopic = TelegramService.escapeMarkdown(topicProperty);
       const escapedContent = TelegramService.escapeMarkdown(content);
       const escapedDate = TelegramService.escapeMarkdown(formattedDate);
+      const escapedGreeting = TelegramService.escapeMarkdown(greeting);
+      const escapedPromptLabel = TelegramService.escapeMarkdown(promptLabel);
 
       // Format message with requested structure
       const replyText = config.prompt_source === 'agent'
         ? 'Reply to this message to log your response.'
         : 'Reply to this message to log your response to Notion.';
+      const escapedReplyText = TelegramService.escapeMarkdown(replyText);
 
-      const message = `${greeting}\n\n${emoji} ${escapedDate} - ${promptLabel}\n🎯 ${escapedTopic}\n\n${escapedContent}\n\n💬 ${replyText}`;
+      const message = `${escapedGreeting}\n\n${emoji} ${escapedDate} - ${escapedPromptLabel}\n🎯 ${escapedTopic}\n\n${escapedContent}\n\n💬 ${escapedReplyText}`;
 
       await telegram.sendMessage(config.telegram_chat_id, message);
 
