@@ -637,6 +637,7 @@ export const appRouter = router({
           'user_generation_context',
           'user_weekly_themes',
           'agent_generation_jobs',
+          'telegram_verification_codes', // Clear old verification codes
         ];
 
         const failedTables: string[] = [];
@@ -845,6 +846,28 @@ export const appRouter = router({
       }).optional().default({}))
       .mutation(async ({ ctx, input }) => {
         const supabase = serverSupabase;
+
+        // RESET: Clear bot conversation state when generating verification code
+        // This ensures a fresh start and prevents old conversation state from interfering
+        await supabase
+          .from('bot_state')
+          // @ts-expect-error Supabase v2.80.0 type inference issue
+          .update({
+            last_prompt_type: null,
+            last_prompt_sent_at: null,
+            last_prompt_page_id: null,
+          })
+          .eq('user_id', ctx.userId);
+
+        SafeLogger.info('Reset bot state for verification', { userId: ctx.userId });
+
+        // Clean up old/expired verification codes for this user
+        // Delete all codes for this user (we'll create a fresh one)
+        // This prevents confusion from multiple active codes
+        await supabase
+          .from('telegram_verification_codes')
+          .delete()
+          .eq('user_id', ctx.userId);
 
         // Generate a 6-digit code
         const code = Math.floor(100000 + Math.random() * 900000).toString();

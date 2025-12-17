@@ -87,6 +87,13 @@ export async function POST(request: NextRequest) {
         // Continue to normal flow - don't block on verification code lookup errors
       }
 
+      SafeLogger.info('Verification code lookup result', {
+        chatId,
+        code: code || 'hello',
+        found: !!verificationData && verificationData.length > 0,
+        count: verificationData?.length || 0,
+      });
+
       if (verificationData && verificationData.length > 0) {
         const verification = verificationData[0] as { id: string; user_id: string; code: string; expires_at: string; timezone: string | null };
         
@@ -237,6 +244,46 @@ export async function POST(request: NextRequest) {
           isHello,
           hasCode: !!code,
         });
+
+        // If message looks like a verification code but doesn't match, send helpful message
+        // Don't treat it as a reply to a prompt
+        if (verificationCodeMatch || isHello) {
+          const telegram = new TelegramService();
+          
+          // Check if user is already linked
+          const { data: existingConfig } = await supabase
+            .from('bot_configs')
+            .select('user_id')
+            .eq('telegram_chat_id', chatId)
+            .single();
+          
+          let errorMessage = '';
+          
+          if (verificationCodeMatch) {
+            if (existingConfig) {
+              errorMessage = `✅ *You're Already Linked\\!*\n\nYour account is already connected\\. If you want to verify again, please generate a new code from your Threadbot dashboard\\.\n\nThe code "${code}" is either expired, already used, or incorrect\\.`;
+            } else {
+              errorMessage = `❌ *Verification Code Not Found*\n\nThe code "${code}" is either:\n\n• Expired \\(codes expire after 10 minutes\\)\n• Already used\n• Incorrect\n\nPlease generate a new code from your Threadbot dashboard\\.`;
+            }
+          } else if (isHello) {
+            if (existingConfig) {
+              errorMessage = `✅ *You're Already Linked\\!*\n\nYour account is already connected\\. If you want to verify again, please generate a new code from your Threadbot dashboard\\.`;
+            } else {
+              errorMessage = `❌ *No Active Verification Code*\n\nPlease generate a verification code from your Threadbot dashboard first\\.\n\nOr send your 6\\-digit code directly\\.`;
+            }
+          }
+          
+          try {
+            await telegram.sendMessage(chatId, errorMessage);
+          } catch (telegramError: any) {
+            SafeLogger.error('Failed to send verification error message', {
+              error: telegramError.message,
+              chatId,
+            });
+          }
+          
+          return NextResponse.json({ ok: true });
+        }
       }
     }
 
