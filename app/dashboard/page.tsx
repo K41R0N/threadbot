@@ -20,6 +20,8 @@ interface AgentDatabase {
   eveningCount: number;
   createdAt: string | undefined;
   status: 'active' | 'connected' | 'inactive';
+  startDate: string;
+  endDate: string;
 }
 
 export default function DashboardPage() {
@@ -115,31 +117,90 @@ export default function DashboardPage() {
   // Note: config may be null for AI-only users (no Telegram/Notion setup)
   const botConfig: BotConfig | null = config || null;
 
-  // Group prompts by month to show existing databases
-  const agentDatabases: AgentDatabase[] = (allPrompts as UserPrompt[] | undefined)?.reduce<AgentDatabase[]>((acc, prompt) => {
-    const monthKey = prompt.date.slice(0, 7); // "2025-11"
-    if (!acc.find(db => db.monthKey === monthKey)) {
-      const monthPrompts = (allPrompts as UserPrompt[]).filter(p => p.date.startsWith(monthKey));
-      const morningCount = monthPrompts.filter(p => p.post_type === 'morning').length;
-      const eveningCount = monthPrompts.filter(p => p.post_type === 'evening').length;
-
-      // Check if this database is connected to the bot
-      const botCfg = botConfig as BotConfig | null;
-      const isConnected = botCfg?.prompt_source === 'agent';
-      const isActive = Boolean(isConnected && botCfg?.is_active);
-
-      acc.push({
+  // Group prompts by date range to show existing databases
+  // Find continuous date ranges (prompts that span multiple months)
+  const agentDatabases: AgentDatabase[] = (() => {
+    if (!allPrompts || (allPrompts as UserPrompt[]).length === 0) return [];
+    
+    const prompts = allPrompts as UserPrompt[];
+    const sortedPrompts = [...prompts].sort((a, b) => a.date.localeCompare(b.date));
+    
+    // Group by continuous date ranges
+    const ranges: Array<{ startDate: string; endDate: string; prompts: UserPrompt[] }> = [];
+    let currentRange: { startDate: string; endDate: string; prompts: UserPrompt[] } | null = null;
+    
+    sortedPrompts.forEach((prompt) => {
+      if (!currentRange) {
+        currentRange = {
+          startDate: prompt.date,
+          endDate: prompt.date,
+          prompts: [prompt],
+        };
+      } else {
+        const lastDate = new Date(currentRange.endDate);
+        const currentDate = new Date(prompt.date);
+        const daysDiff = Math.floor((currentDate.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24));
+        
+        // If within 2 days, consider it part of the same range
+        if (daysDiff <= 2) {
+          currentRange.endDate = prompt.date;
+          currentRange.prompts.push(prompt);
+        } else {
+          // Start a new range
+          ranges.push(currentRange);
+          currentRange = {
+            startDate: prompt.date,
+            endDate: prompt.date,
+            prompts: [prompt],
+          };
+        }
+      }
+    });
+    
+    if (currentRange) {
+      ranges.push(currentRange);
+    }
+    
+    // Convert to AgentDatabase format
+    const botCfg = botConfig as BotConfig | null;
+    const isConnected = botCfg?.prompt_source === 'agent';
+    const isActive = Boolean(isConnected && botCfg?.is_active);
+    
+    return ranges.map((range) => {
+      const morningCount = range.prompts.filter(p => p.post_type === 'morning').length;
+      const eveningCount = range.prompts.filter(p => p.post_type === 'evening').length;
+      const monthKey = range.startDate.slice(0, 7); // For backward compatibility
+      
+      // Generate a name based on date range
+      const startDateObj = new Date(range.startDate);
+      const endDateObj = new Date(range.endDate);
+      const startMonth = startDateObj.toLocaleDateString('en-US', { month: 'short' });
+      const endMonth = endDateObj.toLocaleDateString('en-US', { month: 'short' });
+      const startYear = startDateObj.getFullYear();
+      const endYear = endDateObj.getFullYear();
+      
+      // If same month, show single month with year
+      // If different months but same year, show "Month1 - Month2 Year"
+      // If different years, show "Month1 Year1 - Month2 Year2"
+      const name = startMonth === endMonth 
+        ? `${startMonth} ${startYear}`
+        : startYear === endYear
+        ? `${startMonth} - ${endMonth} ${startYear}`
+        : `${startMonth} ${startYear} - ${endMonth} ${endYear}`;
+      
+      return {
         monthKey,
-        name: new Date(monthKey + '-01').toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
-        promptCount: monthPrompts.length,
+        name,
+        promptCount: range.prompts.length,
         morningCount,
         eveningCount,
-        createdAt: monthPrompts[0]?.created_at,
+        createdAt: range.prompts[0]?.created_at,
         status: isActive ? 'active' : (isConnected ? 'connected' : 'inactive'),
-      });
-    }
-    return acc;
-  }, []) || [];
+        startDate: range.startDate,
+        endDate: range.endDate,
+      };
+    });
+  })();
 
   const botCfg = botConfig as BotConfig | null;
   const hasNotionDatabase = botCfg?.notion_database_id;
@@ -363,15 +424,12 @@ export default function DashboardPage() {
               {/* Agent Databases */}
               {agentDatabases.map((db: AgentDatabase) => {
                 const totalPrompts = db.morningCount + db.eveningCount;
-                const expectedPrompts = 60; // 30 mornings + 30 evenings
-                const rawPercent = Math.round((totalPrompts / expectedPrompts) * 100);
-                const completionPercent = Math.min(100, Math.max(0, rawPercent)); // Clamp to 0-100
 
                 return (
                   <div
-                    key={db.monthKey}
+                    key={`${db.startDate}-${db.endDate}`}
                     className="border-2 border-black p-6 hover:bg-gray-50 cursor-pointer transition"
-                    onClick={() => router.push(`/agent/database/${db.monthKey}`)}
+                    onClick={() => router.push(`/agent/database/range/${db.startDate}/${db.endDate}`)}
                   >
                     <div className="flex justify-between items-start">
                       <div className="flex-1">
@@ -382,28 +440,16 @@ export default function DashboardPage() {
                           {getStatusBadge(db.status)}
                         </div>
 
-                        {/* Progress Indicator */}
-                        <div className="mb-3">
-                          <div className="flex items-center justify-between text-xs text-gray-600 mb-1">
-                            <span>{totalPrompts} of {expectedPrompts} prompts generated</span>
-                            <span className="font-display">{completionPercent}%</span>
-                          </div>
-                          <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
-                            <div
-                              className={`h-full transition-all ${
-                                completionPercent === 100 ? 'bg-green-500' : 'bg-blue-500'
-                              }`}
-                              style={{ width: `${completionPercent}%` }}
-                            />
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-4 text-sm text-gray-600">
+                        <div className="flex items-center gap-4 text-sm text-gray-600 mb-2">
+                          <span>{totalPrompts} prompts</span>
+                          <span>•</span>
                           <span>{db.morningCount} morning</span>
                           <span>•</span>
                           <span>{db.eveningCount} evening</span>
                           <span>•</span>
-                          <span>Created {db.createdAt ? new Date(db.createdAt).toLocaleDateString() : 'Unknown'}</span>
+                          <span>
+                            {new Date(db.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - {new Date(db.endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                          </span>
                         </div>
 
                         {db.status === 'active' && (
@@ -414,11 +460,6 @@ export default function DashboardPage() {
                         {db.status === 'connected' && (
                           <div className="mt-2 text-sm text-blue-700">
                             Connected to bot (activate in Settings)
-                          </div>
-                        )}
-                        {db.status === 'inactive' && totalPrompts < expectedPrompts && (
-                          <div className="mt-2 text-sm text-amber-700">
-                            ⚠ Incomplete - Click to continue generation
                           </div>
                         )}
                       </div>

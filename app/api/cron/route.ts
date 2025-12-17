@@ -20,10 +20,19 @@ export async function GET(request: NextRequest) {
     // Primary check: Verify request is from Vercel Cron (has x-vercel-cron header)
     // Secondary check: If secret is provided in URL, verify it matches (for manual testing)
     const isVercelCron = vercelCronHeader === '1';
-    const hasSecret = !!providedSecret && !!cronSecret;
-    const secretMatches = hasSecret ? providedSecret === cronSecret : true;
+    
+    // If secret is provided, it must match CRON_SECRET
+    // If CRON_SECRET is not configured, deny access unless it's from Vercel Cron
+    let secretMatches = false;
+    if (providedSecret && cronSecret) {
+      secretMatches = providedSecret === cronSecret;
+    } else if (providedSecret && !cronSecret) {
+      // Secret provided but CRON_SECRET not configured - deny
+      secretMatches = false;
+    }
+    // If no secret provided, secretMatches remains false (only Vercel Cron can access)
 
-    // Allow if: (1) It's from Vercel Cron OR (2) Secret matches (for manual testing)
+    // Allow if: (1) It's from Vercel Cron OR (2) Secret is provided AND matches (for manual testing)
     if (!isVercelCron && !secretMatches) {
       SafeLogger.warn('Unauthorized cron request attempt', {
         ip: request.headers.get('x-forwarded-for'),

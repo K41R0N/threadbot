@@ -4,11 +4,12 @@ import { use, useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useUser } from '@clerk/nextjs';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { trpc } from '@/lib/trpc';
 import { toast } from 'sonner';
 import type { UserPrompt } from '@/lib/supabase-agent';
 import type { BotConfig } from '@/lib/supabase';
+import { PromptCalendar } from '@/components/calendar/prompt-calendar';
+import { PromptEditPanel } from '@/components/calendar/prompt-edit-panel';
 
 // Get bot username from environment or use default
 const BOT_USERNAME = process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME || 'threadbot_bot';
@@ -22,11 +23,13 @@ export default function DatabaseRangePage({
   const router = useRouter();
   const searchParams = useSearchParams();
   const { isSignedIn } = useUser();
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editedPrompts, setEditedPrompts] = useState<string[]>([]);
   const [showTelegramModal, setShowTelegramModal] = useState(false);
   const [verificationCode, setVerificationCode] = useState<string | null>(null);
   const [isWaiting, setIsWaiting] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [selectedPrompts, setSelectedPrompts] = useState<UserPrompt[]>([]);
+  const [isPanelOpen, setIsPanelOpen] = useState(false);
+  const [deletedPromptIds, setDeletedPromptIds] = useState<Set<string>>(new Set());
 
   // Check if this is a fresh generation (from URL param)
   const isFreshGeneration = searchParams.get('generated') === 'true';
@@ -57,7 +60,8 @@ export default function DatabaseRangePage({
 
   useEffect(() => {
     // Show modal if just generated and Telegram not connected
-    if (isFreshGeneration && (!botConfig?.telegram_chat_id || !botConfig?.is_active)) {
+    // Note: If Telegram is connected but inactive, the activation banner below will handle it
+    if (isFreshGeneration && !botConfig?.telegram_chat_id) {
       setShowTelegramModal(true);
     }
   }, [isFreshGeneration, botConfig]);
@@ -97,9 +101,21 @@ export default function DatabaseRangePage({
   });
 
   const updatePrompt = trpc.agent.updatePrompt.useMutation({
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       toast.success('Prompt updated!');
-      setEditingId(null);
+      
+      // Update selectedPrompts state to reflect the changes
+      // Only update if prompts were provided in the mutation
+      if (variables.prompts) {
+        const updatedPrompts = selectedPrompts.map(p => 
+          p.id === variables.id 
+            ? { ...p, prompts: variables.prompts! }
+            : p
+        );
+        setSelectedPrompts(updatedPrompts);
+      }
+      
+      // Refetch to sync with server (handles status updates and ensures consistency)
       refetch();
     },
     onError: (error) => {
@@ -108,27 +124,58 @@ export default function DatabaseRangePage({
   });
 
   const deletePrompt = trpc.agent.deletePrompt.useMutation({
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       toast.success('Prompt deleted');
-      refetch();
+      
+      // Track deleted prompt ID to filter it out from calendar immediately
+      setDeletedPromptIds((prev) => new Set(prev).add(variables.id));
+      
+      // Immediately update selectedPrompts by filtering out the deleted prompt
+      const updatedPrompts = selectedPrompts.filter(p => p.id !== variables.id);
+      setSelectedPrompts(updatedPrompts);
+      
+      // Close panel if no prompts remain for this date
+      if (updatedPrompts.length === 0) {
+        setIsPanelOpen(false);
+        setSelectedDate(null);
+        setSelectedPrompts([]);
+      }
+      
+      // Refetch to sync with server
+      refetch().then(() => {
+        // Clear deleted IDs after refetch completes (they're now gone from server)
+        setDeletedPromptIds((prev) => {
+          const updated = new Set(prev);
+          updated.delete(variables.id);
+          return updated;
+        });
+      });
     },
   });
 
-  const handleEdit = (prompt: UserPrompt) => {
-    setEditingId(prompt.id);
-    setEditedPrompts(prompt.prompts);
+  const handleDayClick = (date: string, prompts: UserPrompt[]) => {
+    // Filter out any deleted prompts that haven't been refetched yet
+    const validPrompts = prompts.filter(p => !deletedPromptIds.has(p.id));
+    
+    // Don't open panel if all prompts were deleted
+    if (validPrompts.length === 0) {
+      return;
+    }
+    
+    setSelectedDate(date);
+    setSelectedPrompts(validPrompts);
+    setIsPanelOpen(true);
   };
 
-  const handleSave = (id: string) => {
+  const handleSavePrompt = (id: string, promptTexts: string[]) => {
     updatePrompt.mutate({
       id,
-      prompts: editedPrompts,
+      prompts: promptTexts,
     });
   };
 
-  const handleCancel = () => {
-    setEditingId(null);
-    setEditedPrompts([]);
+  const handleDeletePrompt = (id: string) => {
+    deletePrompt.mutate({ id });
   };
 
   const handleExportCSV = () => {
@@ -278,140 +325,14 @@ export default function DatabaseRangePage({
             <Button onClick={() => router.push('/agent')}>← BACK TO DATABASES</Button>
           </div>
         ) : (
-          <div className="border-2 border-black">
-            {/* Table Header */}
-            <div className="bg-black text-white p-4 grid grid-cols-12 gap-4 font-display text-sm">
-              <div className="col-span-2">DATE</div>
-              <div className="col-span-2">WEEK THEME</div>
-              <div className="col-span-1">TYPE</div>
-              <div className="col-span-6">PROMPTS</div>
-              <div className="col-span-1">ACTIONS</div>
-            </div>
-
-            {/* Table Body */}
-            <div className="divide-y-2 divide-black">
-              {dates.map((date) => {
-                const datePrompts = promptsByDate[date].sort((a, b) =>
-                  a.post_type === 'morning' ? -1 : 1
-                );
-
-                return datePrompts.map((prompt) => {
-                  const isEditing = editingId === prompt.id;
-
-                  return (
-                    <div
-                      key={prompt.id}
-                      className="p-4 grid grid-cols-12 gap-4 hover:bg-gray-50 transition"
-                    >
-                      {/* Date */}
-                      <div className="col-span-2 text-sm">
-                        <div className="font-display">
-                          {new Date(prompt.date).toLocaleDateString('en-US', {
-                            month: 'short',
-                            day: 'numeric',
-                            year: 'numeric',
-                          })}
-                        </div>
-                        <div className="text-gray-500 text-xs">
-                          {new Date(prompt.date).toLocaleDateString('en-US', {
-                            weekday: 'short',
-                          })}
-                        </div>
-                      </div>
-
-                      {/* Week Theme */}
-                      <div className="col-span-2 text-sm">
-                        <div className="text-gray-700">{prompt.week_theme}</div>
-                      </div>
-
-                      {/* Type */}
-                      <div className="col-span-1 text-sm">
-                        <span
-                          className={`px-2 py-1 text-xs font-display ${
-                            prompt.post_type === 'morning'
-                              ? 'bg-yellow-100 text-yellow-800'
-                              : 'bg-blue-100 text-blue-800'
-                          }`}
-                        >
-                          {prompt.post_type === 'morning' ? '🌅 AM' : '🌆 PM'}
-                        </span>
-                      </div>
-
-                      {/* Prompts */}
-                      <div className="col-span-6 text-sm">
-                        {isEditing ? (
-                          <div className="space-y-2">
-                            {editedPrompts.map((p, i) => (
-                              <Input
-                                key={i}
-                                value={p}
-                                onChange={(e) => {
-                                  const newPrompts = [...editedPrompts];
-                                  newPrompts[i] = e.target.value;
-                                  setEditedPrompts(newPrompts);
-                                }}
-                                className="text-xs"
-                              />
-                            ))}
-                          </div>
-                        ) : (
-                          <ol className="list-decimal list-inside space-y-1 text-gray-700">
-                            {prompt.prompts.map((p, i) => (
-                              <li key={i} className="text-xs">
-                                {p}
-                              </li>
-                            ))}
-                          </ol>
-                        )}
-                      </div>
-
-                      {/* Actions */}
-                      <div className="col-span-1 flex gap-2">
-                        {isEditing ? (
-                          <>
-                            <button
-                              onClick={() => handleSave(prompt.id)}
-                              className="text-green-600 hover:text-green-800 text-xl"
-                              title="Save"
-                            >
-                              ✓
-                            </button>
-                            <button
-                              onClick={handleCancel}
-                              className="text-red-600 hover:text-red-800 text-xl"
-                              title="Cancel"
-                            >
-                              ×
-                            </button>
-                          </>
-                        ) : (
-                          <>
-                            <button
-                              onClick={() => handleEdit(prompt)}
-                              className="text-blue-600 hover:text-blue-800 text-sm"
-                              title="Edit"
-                            >
-                              ✎
-                            </button>
-                            <button
-                              onClick={() => {
-                                if (confirm('Delete this prompt?')) {
-                                  deletePrompt.mutate({ id: prompt.id });
-                                }
-                              }}
-                              className="text-red-600 hover:text-red-800 text-sm"
-                              title="Delete"
-                            >
-                              🗑
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  );
-                });
-              })}
-            </div>
+          <div className="relative">
+            {/* Calendar View */}
+            <PromptCalendar
+              prompts={(prompts as UserPrompt[]).filter(p => !deletedPromptIds.has(p.id))}
+              startDate={startDate}
+              endDate={endDate}
+              onDayClick={handleDayClick}
+            />
           </div>
         )}
 
@@ -442,6 +363,34 @@ export default function DatabaseRangePage({
               </div>
             </div>
           </div>
+        )}
+
+        {/* Side Panel Overlay */}
+        {isPanelOpen && (
+          <div
+            className="fixed inset-0 bg-black/50 z-40"
+            onClick={() => {
+              setIsPanelOpen(false);
+              setSelectedDate(null);
+              setSelectedPrompts([]);
+            }}
+          />
+        )}
+
+        {/* Edit Panel */}
+        {selectedDate && (
+          <PromptEditPanel
+            date={selectedDate}
+            prompts={selectedPrompts}
+            isOpen={isPanelOpen}
+            onClose={() => {
+              setIsPanelOpen(false);
+              setSelectedDate(null);
+              setSelectedPrompts([]);
+            }}
+            onSave={handleSavePrompt}
+            onDelete={handleDeletePrompt}
+          />
         )}
       </div>
 

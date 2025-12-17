@@ -1,8 +1,24 @@
 # ThreadBot - Project Status
 
-**Last Updated**: 2025-11-11
-**Branch**: `claude/codebase-review-011CV25yKNzpz9jAWxbGopSc`
-**Status**: ✅ Ready for deployment (Phase 1 migration pending)
+**Last Updated**: January 2025
+**Branch**: `main`
+**Status**: ✅ Ready for deployment
+
+---
+
+## 📋 Recent Updates
+
+**Latest Changes (January 2025):**
+- ✅ Calendar UI rework - Replaced table view with calendar view (Sprout Social style)
+- ✅ Side panel for editing prompts
+- ✅ Dashboard date range grouping (fixes incomplete status issue)
+- ✅ CRON authentication security fix
+- ✅ Telegram modal logic fix
+- ✅ LICENSE file tracking fix
+
+**See:** `CHANGELOG_2025-01.md` for complete details
+
+**Quick Reference:** `QUICK_REFERENCE.md` for developers
 
 ---
 
