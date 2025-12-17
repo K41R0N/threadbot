@@ -4,29 +4,47 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser } from '@clerk/nextjs';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { trpc } from '@/lib/trpc';
 
 import { toast } from 'sonner';
 
+// Get bot username from environment or use default
+const BOT_USERNAME = process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME || 'threadbot_bot';
+
 export default function SetupTelegramPage() {
   const router = useRouter();
   const { isSignedIn } = useUser();
-  const [botToken, setBotToken] = useState('');
-  const [chatId, setChatId] = useState('');
+  const [verificationCode, setVerificationCode] = useState<string | null>(null);
+  const [isWaiting, setIsWaiting] = useState(false);
+  
+  // Auto-detect timezone from browser
+  const [detectedTimezone] = useState(() => {
+    try {
+      return Intl.DateTimeFormat().resolvedOptions().timeZone;
+    } catch {
+      return 'America/New_York'; // Fallback
+    }
+  });
 
   const { data: config } = trpc.bot.getConfig.useQuery(undefined, {
     enabled: isSignedIn,
   });
 
-  const updateConfig = trpc.bot.updateConfig.useMutation({
-    onSuccess: () => {
-      toast.success('Telegram connected!');
-      router.push('/setup/schedule');
+  const generateCode = trpc.bot.generateVerificationCode.useMutation({
+    onSuccess: (data) => {
+      setVerificationCode(data.code);
+      setIsWaiting(true);
+      toast.success('Verification code generated!');
     },
     onError: (error) => {
-      toast.error(`Failed: ${error.message}`);
+      toast.error(`Failed to generate code: ${error.message}`);
     },
+  });
+
+  // Poll to check if chat ID was linked
+  const { data: linkStatus } = trpc.bot.checkChatIdLinked.useQuery(undefined, {
+    enabled: isWaiting && !!verificationCode,
+    refetchInterval: 2000, // Check every 2 seconds
   });
 
   useEffect(() => {
@@ -37,18 +55,18 @@ export default function SetupTelegramPage() {
     }
   }, [isSignedIn, config, router]);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!botToken || !chatId) {
-      toast.error('Please fill in all fields');
-      return;
+  useEffect(() => {
+    if (linkStatus?.linked) {
+      toast.success('Telegram connected!');
+      router.push('/setup/schedule');
     }
+  }, [linkStatus, router]);
 
-    updateConfig.mutate({
-      telegramBotToken: botToken,
-      telegramChatId: chatId,
-    });
+  const handleOpenTelegram = () => {
+    generateCode.mutate();
+    // Open Telegram app or web
+    const telegramUrl = `https://t.me/${BOT_USERNAME}`;
+    window.open(telegramUrl, '_blank');
   };
 
   if (!config) return null;
@@ -87,50 +105,87 @@ export default function SetupTelegramPage() {
             Create your bot and configure message delivery
           </p>
 
-          <div className="space-y-6 mb-8">
-            <div className="border-2 border-black p-6">
-              <h3 className="font-display text-xl mb-3">STEP 1: CREATE BOT</h3>
-              <ol className="list-decimal list-inside space-y-2 text-sm">
-                <li>Open Telegram and search for @BotFather</li>
-                <li>Send /newbot command</li>
-                <li>Choose a name and username</li>
-                <li>Copy the bot token (long string starting with numbers)</li>
-              </ol>
-            </div>
+          <div className="space-y-6">
+            {!verificationCode ? (
+              <>
+                <div className="border-2 border-black p-6 bg-gray-50">
+                  <h3 className="font-display text-xl mb-3">AUTOMATIC CONNECTION</h3>
+                  <p className="text-sm text-gray-700 mb-4">
+                    Click the button below to open Telegram and we'll automatically link your account when you say "hello"!
+                  </p>
+                  <Button
+                    onClick={handleOpenTelegram}
+                    disabled={generateCode.isPending}
+                    size="lg"
+                    className="w-full"
+                  >
+                    {generateCode.isPending ? 'GENERATING CODE...' : '📱 OPEN TELEGRAM'}
+                  </Button>
+                </div>
 
-            <div className="border-2 border-black p-6">
-              <h3 className="font-display text-xl mb-3">STEP 2: GET CHAT ID</h3>
-              <ol className="list-decimal list-inside space-y-2 text-sm">
-                <li>Search for @userinfobot on Telegram</li>
-                <li>Start a chat with it</li>
-                <li>Copy your Chat ID (numbers only)</li>
-                <li>Then start a chat with YOUR bot (the one you just created)</li>
-              </ol>
-            </div>
-          </div>
+                <div className="border-t-2 border-gray-200 pt-6">
+                  <p className="text-sm text-gray-600 mb-4 text-center">OR</p>
+                  <div className="border-2 border-black p-6">
+                    <h3 className="font-display text-xl mb-3">MANUAL SETUP</h3>
+                    <ol className="list-decimal list-inside space-y-2 text-sm mb-4">
+                      <li>Get your Chat ID from <a href="https://t.me/userinfobot" target="_blank" rel="noopener noreferrer" className="underline">@userinfobot</a></li>
+                      <li>Enter it below and continue</li>
+                    </ol>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => router.push('/setup/schedule')}
+                      className="w-full"
+                    >
+                      SKIP FOR NOW
+                    </Button>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="border-2 border-black p-8 bg-gray-50">
+                <div className="text-center mb-6">
+                  <div className="text-6xl font-display mb-4 tracking-wider border-4 border-black p-6 bg-white">
+                    {verificationCode}
+                  </div>
+                  <p className="text-lg font-display mb-2">YOUR VERIFICATION CODE</p>
+                  <p className="text-sm text-gray-600 mb-6">
+                    Send this code to <strong>@{BOT_USERNAME}</strong> on Telegram, or just say "hello"
+                  </p>
+                </div>
 
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div>
-              <label className="block font-display text-sm mb-2">BOT TOKEN</label>
-              <Input
-                type="password"
-                placeholder="123456:ABC-DEF..."
-                value={botToken}
-                onChange={(e) => setBotToken(e.target.value)}
-                required
-              />
-            </div>
+                {isWaiting && (
+                  <div className="text-center">
+                    <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-black mb-4"></div>
+                    <p className="text-sm text-gray-600">Waiting for you to send the code...</p>
+                  </div>
+                )}
 
-            <div>
-              <label className="block font-display text-sm mb-2">CHAT ID</label>
-              <Input
-                type="text"
-                placeholder="123456789"
-                value={chatId}
-                onChange={(e) => setChatId(e.target.value)}
-                required
-              />
-            </div>
+                <div className="flex gap-4 mt-6">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setVerificationCode(null);
+                      setIsWaiting(false);
+                    }}
+                    className="flex-1"
+                  >
+                    CANCEL
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={() => {
+                      const telegramUrl = `https://t.me/${BOT_USERNAME}`;
+                      window.open(telegramUrl, '_blank');
+                    }}
+                    className="flex-1"
+                  >
+                    OPEN TELEGRAM
+                  </Button>
+                </div>
+              </div>
+            )}
 
             <div className="flex gap-4">
               <Button
@@ -140,11 +195,8 @@ export default function SetupTelegramPage() {
               >
                 BACK
               </Button>
-              <Button type="submit" disabled={updateConfig.isPending} className="flex-1">
-                {updateConfig.isPending ? 'CONNECTING...' : 'CONTINUE TO SCHEDULE'}
-              </Button>
             </div>
-          </form>
+          </div>
         </div>
       </div>
     </div>

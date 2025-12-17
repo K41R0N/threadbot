@@ -1,13 +1,16 @@
 'use client';
 
-import { use, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { use, useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useUser } from '@clerk/nextjs';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { trpc } from '@/lib/trpc';
 import { toast } from 'sonner';
 import type { UserPrompt } from '@/lib/supabase-agent';
 
+// Get bot username from environment or use default
+const BOT_USERNAME = process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME || 'threadbot_bot';
 
 export default function DatabaseRangePage({
   params,
@@ -16,8 +19,60 @@ export default function DatabaseRangePage({
 }) {
   const { startDate, endDate } = use(params);
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const { isSignedIn } = useUser();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editedPrompts, setEditedPrompts] = useState<string[]>([]);
+  const [showTelegramModal, setShowTelegramModal] = useState(false);
+  const [verificationCode, setVerificationCode] = useState<string | null>(null);
+  const [isWaiting, setIsWaiting] = useState(false);
+
+  // Check if this is a fresh generation (from URL param)
+  const isFreshGeneration = searchParams.get('generated') === 'true';
+
+  const { data: config } = trpc.bot.getConfig.useQuery(undefined, {
+    enabled: isSignedIn,
+  });
+
+  const generateCode = trpc.bot.generateVerificationCode.useMutation({
+    onSuccess: (data) => {
+      setVerificationCode(data.code);
+      setIsWaiting(true);
+      toast.success('Verification code generated!');
+    },
+    onError: (error) => {
+      toast.error(`Failed to generate code: ${error.message}`);
+    },
+  });
+
+  // Poll to check if chat ID was linked
+  const { data: linkStatus } = trpc.bot.checkChatIdLinked.useQuery(undefined, {
+    enabled: isWaiting && !!verificationCode,
+    refetchInterval: 2000,
+  });
+
+  useEffect(() => {
+    // Show modal if just generated and Telegram not connected
+    if (isFreshGeneration && (!config?.telegram_chat_id || !config?.is_active)) {
+      setShowTelegramModal(true);
+    }
+  }, [isFreshGeneration, config]);
+
+  useEffect(() => {
+    if (linkStatus?.linked) {
+      toast.success('Telegram connected! Bot is now active.');
+      setShowTelegramModal(false);
+      setIsWaiting(false);
+      // Refresh config
+      router.refresh();
+    }
+  }, [linkStatus, router]);
+
+  const handleOpenTelegram = () => {
+    generateCode.mutate();
+    const telegramUrl = `https://t.me/${BOT_USERNAME}`;
+    window.open(telegramUrl, '_blank');
+  };
 
   // Format date range display
   const startFormatted = new Date(startDate).toLocaleDateString('en-US', {
@@ -169,6 +224,50 @@ export default function DatabaseRangePage({
       </div>
 
       <div className="container mx-auto px-4 py-8">
+        {/* Telegram Connection Banner */}
+        {config && (!config.telegram_chat_id || !config.is_active) && (
+          <div className="border-2 border-black p-6 mb-8 bg-yellow-50">
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <h3 className="font-display text-xl mb-2">
+                  {!config.telegram_chat_id ? '📱 Connect Telegram to Receive Daily Prompts' : '⚡ Activate Bot to Start Receiving Prompts'}
+                </h3>
+                <p className="text-sm text-gray-600">
+                  {!config.telegram_chat_id 
+                    ? 'Connect your Telegram account to start receiving your generated prompts daily.'
+                    : 'Your bot is connected but inactive. Activate it to start receiving prompts.'}
+                </p>
+              </div>
+              <div className="flex gap-3">
+                {!config.telegram_chat_id ? (
+                  <Button onClick={() => setShowTelegramModal(true)}>
+                    CONNECT TELEGRAM
+                  </Button>
+                ) : (
+                  <Button onClick={() => router.push('/settings')}>
+                    ACTIVATE BOT
+                  </Button>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Success Banner */}
+        {config && config.telegram_chat_id && config.is_active && (
+          <div className="border-2 border-green-500 p-4 mb-8 bg-green-50">
+            <div className="flex items-center gap-3">
+              <span className="text-2xl">✅</span>
+              <div>
+                <div className="font-display text-lg text-green-800">Bot is Active!</div>
+                <div className="text-sm text-green-700">
+                  You'll receive prompts daily at {config.morning_time} and {config.evening_time} ({config.timezone})
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {!prompts || prompts.length === 0 ? (
           <div className="border-2 border-black p-12 text-center">
             <p className="text-xl text-gray-600 mb-4">No prompts found for this date range</p>
@@ -341,6 +440,82 @@ export default function DatabaseRangePage({
           </div>
         )}
       </div>
+
+      {/* Telegram Connection Modal */}
+      {showTelegramModal && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">
+          <div className="bg-white border-4 border-black p-8 max-w-md w-full">
+            <h2 className="text-3xl font-display mb-4">CONNECT TELEGRAM</h2>
+            
+            {!verificationCode ? (
+              <>
+                <p className="text-gray-600 mb-6">
+                  Connect your Telegram account to start receiving your daily prompts automatically!
+                </p>
+                <div className="space-y-4">
+                  <Button
+                    onClick={handleOpenTelegram}
+                    disabled={generateCode.isPending}
+                    size="lg"
+                    className="w-full"
+                  >
+                    {generateCode.isPending ? 'GENERATING CODE...' : '📱 OPEN TELEGRAM'}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowTelegramModal(false)}
+                    className="w-full"
+                  >
+                    I'LL DO THIS LATER
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="text-center mb-6">
+                  <div className="text-6xl font-display mb-4 tracking-wider border-4 border-black p-6 bg-white">
+                    {verificationCode}
+                  </div>
+                  <p className="text-lg font-display mb-2">YOUR VERIFICATION CODE</p>
+                  <p className="text-sm text-gray-600 mb-6">
+                    Send this code to <strong>@{BOT_USERNAME}</strong> on Telegram, or just say "hello"
+                  </p>
+                </div>
+
+                {isWaiting && (
+                  <div className="text-center mb-6">
+                    <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-black mb-4"></div>
+                    <p className="text-sm text-gray-600">Waiting for you to send the code...</p>
+                  </div>
+                )}
+
+                <div className="flex gap-4">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setVerificationCode(null);
+                      setIsWaiting(false);
+                      setShowTelegramModal(false);
+                    }}
+                    className="flex-1"
+                  >
+                    CANCEL
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      const telegramUrl = `https://t.me/${BOT_USERNAME}`;
+                      window.open(telegramUrl, '_blank');
+                    }}
+                    className="flex-1"
+                  >
+                    OPEN TELEGRAM
+                  </Button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

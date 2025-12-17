@@ -34,7 +34,8 @@ export class BotService {
         };
       }
 
-      const telegram = new TelegramService(config.telegram_bot_token);
+      // Use shared bot token from environment (no longer per-user)
+      const telegram = new TelegramService();
 
       // Get today's date in user's timezone
       const now = new Date();

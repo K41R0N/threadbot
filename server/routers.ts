@@ -138,6 +138,26 @@ export const appRouter = router({
           if (input.isActive !== undefined) updateData.is_active = input.isActive;
           if (input.promptSource) updateData.prompt_source = input.promptSource;
 
+          // AUTO-ACTIVATION: If Telegram chat ID is being set and bot was inactive, auto-activate
+          if (input.telegramChatId && !existingConfig.is_active && input.isActive === undefined) {
+            // Check if user has prompts (AI path) - if so, auto-activate
+            const { data: prompts } = await supabase
+              .from('user_prompts')
+              .select('id')
+              .eq('user_id', ctx.userId)
+              .limit(1);
+            
+            if (prompts && prompts.length > 0) {
+              // User has prompts, auto-activate bot
+              updateData.is_active = true;
+              // Auto-set prompt_source to agent if not explicitly set
+              if (!input.promptSource) {
+                updateData.prompt_source = 'agent';
+              }
+              SafeLogger.info('Auto-activating bot after Telegram connection', { userId: ctx.userId });
+            }
+          }
+
           const { data, error } = await supabase
             .from('bot_configs')
             // @ts-expect-error Supabase v2.80.0 type inference issue
@@ -153,6 +173,16 @@ export const appRouter = router({
           return data;
         } else {
           // CREATE new config for AI-only users
+          // Check if user has prompts - if so, auto-activate
+          const { data: prompts } = await supabase
+            .from('user_prompts')
+            .select('id')
+            .eq('user_id', ctx.userId)
+            .limit(1);
+          
+          const hasPrompts = prompts && prompts.length > 0;
+          const shouldAutoActivate = hasPrompts && input.telegramChatId && input.isActive === undefined;
+
           const insertData: Database['public']['Tables']['bot_configs']['Insert'] = {
             user_id: ctx.userId,
             notion_token: input.notionToken || null,
@@ -162,8 +192,8 @@ export const appRouter = router({
             timezone: input.timezone || 'UTC',
             morning_time: input.morningTime || '09:00',
             evening_time: input.eveningTime || '18:00',
-            is_active: input.isActive !== undefined ? input.isActive : false,
-            prompt_source: input.promptSource || 'agent',
+            is_active: shouldAutoActivate ? true : (input.isActive !== undefined ? input.isActive : false),
+            prompt_source: input.promptSource || (hasPrompts ? 'agent' : 'notion'),
           };
 
           const { data, error } = await supabase
@@ -191,31 +221,38 @@ export const appRouter = router({
         }
       }),
 
-    // Set up Telegram webhook (server-side, token never exposed to client)
+    // Set up Telegram webhook (shared bot - sets webhook once for all users)
     setupWebhookForUser: protectedProcedure.mutation(async ({ ctx }) => {
       const supabase = serverSupabase;
 
-      // Get full config from database (server-side only)
+      // Verify user has chat ID configured
       const { data: config, error } = await supabase
         .from('bot_configs')
-        .select('telegram_bot_token, user_id')
+        .select('telegram_chat_id, user_id')
         .eq('user_id', ctx.userId)
         .single();
 
       if (error || !config) {
         return {
           success: false,
-          message: 'Bot configuration not found',
+          message: 'Bot configuration not found. Please configure your Telegram chat ID first.',
+        };
+      }
+
+      if (!config.telegram_chat_id) {
+        return {
+          success: false,
+          message: 'Telegram chat ID not configured. Please set your chat ID first.',
         };
       }
 
       try {
-        // @ts-expect-error Supabase v2.80.0 type inference issue
-        const webhookUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/webhook/${config.user_id}`;
+        // Shared webhook URL for all users (routes by chat ID)
+        const webhookUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/webhook`;
         const secretToken = process.env.TELEGRAM_WEBHOOK_SECRET;
 
-        // @ts-expect-error Supabase v2.80.0 type inference issue
-        const telegram = new TelegramService(config.telegram_bot_token);
+        // Use shared bot token from environment
+        const telegram = new TelegramService();
         const success = await telegram.setWebhook(webhookUrl, secretToken);
 
         // Persist webhook health status
@@ -316,23 +353,23 @@ export const appRouter = router({
       SafeLogger.info('Bot config status', {
         isActive: botConfig.is_active,
         promptSource: botConfig.prompt_source,
-        hasTelegramToken: !!botConfig.telegram_bot_token,
         hasTelegramChatId: !!botConfig.telegram_chat_id,
       });
 
       logs.push(`📊 Bot active: ${botConfig.is_active ? 'Yes' : 'No'}`);
       logs.push(`📡 Prompt source: ${botConfig.prompt_source}`);
 
-      // Step 3: Check Telegram credentials
-      if (!botConfig.telegram_bot_token) {
-        SafeLogger.error('Telegram bot token missing');
+      // Step 3: Check Telegram credentials (shared bot - no token needed in config)
+      // Verify shared bot token is configured in environment
+      if (!process.env.TELEGRAM_BOT_TOKEN) {
+        SafeLogger.error('TELEGRAM_BOT_TOKEN environment variable not configured');
         return {
           success: false,
-          message: 'Telegram bot token not configured',
-          logs: [...logs, '❌ Telegram bot token missing'],
+          message: 'Telegram bot is not configured. Please contact support.',
+          logs: [...logs, '❌ Shared Telegram bot token not configured'],
         };
       }
-      logs.push('✅ Telegram bot token configured');
+      logs.push('✅ Shared Telegram bot configured');
 
       if (!botConfig.telegram_chat_id) {
         SafeLogger.error('Telegram chat ID missing');
@@ -507,7 +544,8 @@ export const appRouter = router({
           chatId: botConfig.telegram_chat_id
         });
 
-        const telegram = new TelegramService(botConfig.telegram_bot_token);
+        // Use shared bot token from environment
+        const telegram = new TelegramService();
         const escapedTopic = TelegramService.escapeMarkdown(promptTopic);
         const escapedContent = TelegramService.escapeMarkdown(promptContent);
         const escapedDate = TelegramService.escapeMarkdown(promptDate);
@@ -666,6 +704,136 @@ export const appRouter = router({
           message: `Failed to delete account: ${message}`,
         };
       }
+    }),
+
+    // Quick setup: Connect Telegram and auto-configure everything
+    quickSetup: protectedProcedure
+      .input(z.object({
+        telegramChatId: z.string(),
+        timezone: z.string().optional(),
+        morningTime: z.string().optional(),
+        eveningTime: z.string().optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const supabase = serverSupabase;
+
+        // Detect timezone if not provided
+        const timezone = input.timezone || 'America/New_York'; // Default, can be improved with browser detection
+        const morningTime = input.morningTime || '09:00';
+        const eveningTime = input.eveningTime || '18:00';
+
+        // Check if user has prompts (AI path)
+        const { data: prompts } = await supabase
+          .from('user_prompts')
+          .select('id')
+          .eq('user_id', ctx.userId)
+          .limit(1);
+        
+        const hasPrompts = prompts && prompts.length > 0;
+
+        // Update or create config with auto-activation
+        const { data: existingConfig } = await supabase
+          .from('bot_configs')
+          .select('id, is_active')
+          .eq('user_id', ctx.userId)
+          .single();
+
+        const updateData: Database['public']['Tables']['bot_configs']['Update'] = {
+          telegram_chat_id: input.telegramChatId,
+          timezone,
+          morning_time: morningTime,
+          evening_time: eveningTime,
+          prompt_source: hasPrompts ? 'agent' : 'notion',
+          // Auto-activate if user has prompts
+          is_active: hasPrompts ? true : false,
+        };
+
+        if (existingConfig) {
+          await supabase
+            .from('bot_configs')
+            // @ts-expect-error Supabase v2.80.0 type inference issue
+            .update(updateData)
+            .eq('user_id', ctx.userId);
+        } else {
+          await supabase
+            .from('bot_configs')
+            // @ts-expect-error Supabase v2.80.0 type inference issue
+            .insert({
+              user_id: ctx.userId,
+              ...updateData,
+              notion_token: null,
+              notion_database_id: null,
+              telegram_bot_token: null,
+            });
+
+          // Initialize bot state
+          await supabase
+            .from('bot_state')
+            // @ts-expect-error Supabase v2.80.0 type inference issue
+            .insert({ user_id: ctx.userId });
+        }
+
+        // Setup webhook
+        const telegram = new TelegramService();
+        const webhookUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/webhook`;
+        const secretToken = process.env.TELEGRAM_WEBHOOK_SECRET;
+        await telegram.setWebhook(webhookUrl, secretToken);
+
+        return {
+          success: true,
+          activated: hasPrompts,
+          message: hasPrompts 
+            ? 'Bot is now active! You\'ll receive prompts daily.' 
+            : 'Telegram connected. Activate bot in Settings to start receiving prompts.',
+        };
+      }),
+
+    // Generate verification code for Telegram linking
+    generateVerificationCode: protectedProcedure.mutation(async ({ ctx }) => {
+      const supabase = serverSupabase;
+
+      // Generate a 6-digit code
+      const code = Math.floor(100000 + Math.random() * 900000).toString();
+
+      // Store code with 10-minute expiration
+      const expiresAt = new Date();
+      expiresAt.setMinutes(expiresAt.getMinutes() + 10);
+
+      const { data, error } = await supabase
+        .from('telegram_verification_codes')
+        // @ts-expect-error Supabase v2.80.0 type inference issue
+        .insert({
+          user_id: ctx.userId,
+          code,
+          expires_at: expiresAt.toISOString(),
+        })
+        .select('code, expires_at')
+        .single();
+
+      if (error) {
+        throw new Error('Failed to generate verification code');
+      }
+
+      return {
+        code: data.code,
+        expiresAt: data.expires_at,
+      };
+    }),
+
+    // Check if chat ID was linked (for polling)
+    checkChatIdLinked: protectedProcedure.query(async ({ ctx }) => {
+      const supabase = serverSupabase;
+
+      const { data: config } = await supabase
+        .from('bot_configs')
+        .select('telegram_chat_id')
+        .eq('user_id', ctx.userId)
+        .single();
+
+      return {
+        linked: !!config?.telegram_chat_id,
+        chatId: config?.telegram_chat_id || null,
+      };
     }),
   }),
 

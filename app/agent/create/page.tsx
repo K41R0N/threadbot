@@ -87,8 +87,8 @@ export default function CreateDatabasePage() {
       if (response.success) {
         toast.success(`Generated ${response.totalPrompts} prompts!`);
         setTimeout(() => {
-          // Redirect to date-range view to show all prompts continuously
-          router.push(`/agent/database/range/${startDate}/${endDate}`);
+          // Redirect to date-range view with generated flag to show Telegram connection modal
+          router.push(`/agent/database/range/${startDate}/${endDate}?generated=true`);
         }, 1500);
       } else if (response.needsCredits) {
         // No credits remaining

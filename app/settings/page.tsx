@@ -21,7 +21,6 @@ export default function SettingsPage() {
 
   const [notionToken, setNotionToken] = useState('');
   const [databaseId, setDatabaseId] = useState('');
-  const [telegramBotToken, setTelegramBotToken] = useState('');
   const [telegramChatId, setTelegramChatId] = useState('');
   const [timezone, setTimezone] = useState('');
   const [morningTime, setMorningTime] = useState('');
@@ -29,9 +28,7 @@ export default function SettingsPage() {
   const [promptSource, setPromptSource] = useState<'notion' | 'agent'>('notion');
 
   const [showNotionToken, setShowNotionToken] = useState(false);
-  const [showTelegramToken, setShowTelegramToken] = useState(false);
   const [shouldClearNotionToken, setShouldClearNotionToken] = useState(false);
-  const [shouldClearTelegramToken, setShouldClearTelegramToken] = useState(false);
   const [testLogs, setTestLogs] = useState<string[]>([]);
   const [showTestLogs, setShowTestLogs] = useState(false);
 
@@ -57,7 +54,6 @@ export default function SettingsPage() {
     onSuccess: () => {
       // Reset clear flags only after successful save
       setShouldClearNotionToken(false);
-      setShouldClearTelegramToken(false);
       toast.success('Settings updated successfully!');
       router.push('/dashboard');
     },
@@ -182,25 +178,11 @@ export default function SettingsPage() {
     toast.info('Notion token will be cleared when you save');
   };
 
-  const handleClearTelegramToken = () => {
-    setShouldClearTelegramToken(true);
-    setTelegramBotToken('');
-    toast.info('Telegram bot token will be cleared when you save');
-  };
-
   // Reset clear flags when user starts typing again
   const handleNotionTokenChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setNotionToken(e.target.value);
     if (e.target.value.trim() && shouldClearNotionToken) {
       setShouldClearNotionToken(false);
-      toast.info('Clear cancelled - new token will be saved');
-    }
-  };
-
-  const handleTelegramTokenChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setTelegramBotToken(e.target.value);
-    if (e.target.value.trim() && shouldClearTelegramToken) {
-      setShouldClearTelegramToken(false);
       toast.info('Clear cancelled - new token will be saved');
     }
   };
@@ -220,7 +202,6 @@ export default function SettingsPage() {
       notionToken?: string | null;
       notionDatabaseId?: string | null;
       telegramChatId?: string;
-      telegramBotToken?: string | null;
     };
 
     const updateData: ConfigUpdate = {
@@ -252,25 +233,20 @@ export default function SettingsPage() {
     }
 
     const currentChatId = botConfig ? (botConfig as BotConfig).telegram_chat_id : '';
-    if (telegramChatId !== (currentChatId || '')) updateData.telegramChatId = telegramChatId;
-
-    // Handle telegram bot token: check explicit clear flag
-    if (shouldClearTelegramToken) {
-      updateData.telegramBotToken = null; // Clear token
-      // Flag will be reset in onSuccess callback
-    } else if (telegramBotToken.trim()) {
-      updateData.telegramBotToken = telegramBotToken; // Update token
+    if (telegramChatId !== (currentChatId || '')) {
+      updateData.telegramChatId = telegramChatId;
+      // Update webhook when chat ID changes (to ensure routing works)
+      try {
+        await updateConfig.mutateAsync(updateData);
+        await setupWebhookForUser.mutateAsync();
+        return;
+      } catch (error) {
+        throw error;
+      }
     }
-
-    const shouldUpdateWebhook = telegramBotToken.trim() !== '' && !shouldClearTelegramToken;
 
     try {
       await updateConfig.mutateAsync(updateData);
-
-      // Reconfigure webhook if telegram token was updated
-      if (shouldUpdateWebhook) {
-        await setupWebhookForUser.mutateAsync();
-      }
     } catch (error) {
       console.error('Settings update error:', error);
     }
@@ -395,41 +371,15 @@ export default function SettingsPage() {
             <h2 className="text-3xl font-display mb-6">TELEGRAM</h2>
 
             <div className="space-y-6">
-              <div>
-                <label className="block font-display text-sm mb-2">
-                  BOT TOKEN
-                  <span className="text-gray-500 ml-2">(leave blank to keep current)</span>
-                </label>
-                <div className="flex gap-2">
-                  <Input
-                    type={showTelegramToken ? 'text' : 'password'}
-                    placeholder="1234567890:ABC..."
-                    value={telegramBotToken}
-                    onChange={handleTelegramTokenChange}
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setShowTelegramToken(!showTelegramToken)}
-                  >
-                    {showTelegramToken ? 'HIDE' : 'SHOW'}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={handleClearTelegramToken}
-                    className="text-red-600 hover:bg-red-50"
-                  >
-                    CLEAR
-                  </Button>
-                </div>
-                <p className="text-xs text-gray-500 mt-2">
-                  Changing the bot token will automatically reconfigure the webhook
+              <div className="border-2 border-gray-200 p-4 bg-gray-50">
+                <p className="text-sm text-gray-600 mb-2">
+                  <strong>Shared Bot:</strong> All users share the same Telegram bot (@Threadbot). 
+                  You only need to provide your Chat ID to receive messages.
                 </p>
               </div>
 
               <div>
-                <label className="block font-display text-sm mb-2">CHAT ID</label>
+                <label className="block font-display text-sm mb-2">YOUR TELEGRAM CHAT ID</label>
                 <Input
                   type="text"
                   placeholder="123456789"
@@ -437,6 +387,9 @@ export default function SettingsPage() {
                   onChange={(e) => setTelegramChatId(e.target.value)}
                   required
                 />
+                <p className="text-xs text-gray-500 mt-2">
+                  Get your Chat ID from <a href="https://t.me/userinfobot" target="_blank" rel="noopener noreferrer" className="underline">@userinfobot</a>
+                </p>
               </div>
 
               {/* Test Button */}

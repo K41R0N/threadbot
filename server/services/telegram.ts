@@ -4,9 +4,20 @@ import { SafeLogger } from '@/lib/logger';
 export class TelegramService {
   private bot: TelegramBot;
 
-  constructor(token: string) {
+  /**
+   * Create TelegramService instance
+   * @param token - Optional bot token. If not provided, uses TELEGRAM_BOT_TOKEN from environment
+   */
+  constructor(token?: string) {
+    // Use provided token or fall back to shared bot token from environment
+    const botToken = token || process.env.TELEGRAM_BOT_TOKEN;
+    
+    if (!botToken) {
+      throw new Error('Telegram bot token is required. Either provide a token or set TELEGRAM_BOT_TOKEN environment variable.');
+    }
+    
     // Don't use polling in serverless environment
-    this.bot = new TelegramBot(token, { polling: false });
+    this.bot = new TelegramBot(botToken, { polling: false });
   }
 
   /**

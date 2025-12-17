@@ -37,7 +37,7 @@ export type BotConfig = {
   user_id: string;
   notion_token: string | null;
   notion_database_id: string | null;
-  telegram_bot_token: string;
+  telegram_bot_token: string | null; // Nullable - using shared bot token from environment
   telegram_chat_id: string;
   timezone: string;
   morning_time: string;
