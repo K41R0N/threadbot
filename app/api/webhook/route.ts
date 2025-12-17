@@ -57,11 +57,14 @@ export async function POST(request: NextRequest) {
       const command = messageTextLower.split(' ')[0]; // Get command without parameters
       
       // Check if user is already linked
-      const { data: existingConfig } = await supabase
+      const { data: existingConfigData } = await supabase
         .from('bot_configs')
         .select('user_id, is_active')
         .eq('telegram_chat_id', chatId)
         .maybeSingle();
+
+      // Type assertion for Supabase query result
+      const existingConfig = existingConfigData as { user_id: string; is_active: boolean } | null;
 
       if (command === '/start' || command === '/verify') {
         if (existingConfig) {
@@ -82,11 +85,14 @@ export async function POST(request: NextRequest) {
 
       if (command === '/status') {
         if (existingConfig) {
-          const { data: state } = await supabase
+          const { data: stateData } = await supabase
             .from('bot_state')
             .select('last_prompt_type, last_prompt_sent_at')
             .eq('user_id', existingConfig.user_id)
             .single();
+
+          // Type assertion for Supabase query result
+          const state = stateData as { last_prompt_type: string | null; last_prompt_sent_at: string | null } | null;
 
           const lastPrompt = state?.last_prompt_sent_at 
             ? new Date(state.last_prompt_sent_at).toLocaleString()
@@ -130,11 +136,14 @@ export async function POST(request: NextRequest) {
       const code = verificationCodeMatch ? verificationCodeMatch[1] : null;
 
       // SECURITY: Rate limit verification attempts to prevent brute-force attacks
-      const { data: attemptRecord } = await supabase
+      const { data: attemptRecordData } = await supabase
         .from('verification_attempts')
         .select('attempt_count, last_attempt_at, locked_until')
         .eq('chat_id', chatId)
-        .single();
+        .maybeSingle();
+
+      // Type assertion for Supabase query result
+      const attemptRecord = attemptRecordData as { attempt_count: number; last_attempt_at: string; locked_until: string | null } | null;
 
       const now = new Date();
       let attemptCount = attemptRecord?.attempt_count || 0;
