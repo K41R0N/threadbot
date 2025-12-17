@@ -408,7 +408,7 @@ export const appRouter = router({
             // @ts-expect-error Supabase v2.80.0 type inference issue
             .upsert({
               user_id: ctx.userId,
-              cooldown_key,
+              cooldown_key: cooldownKey,
               send_count: resetSendCount ? 1 : sendCount + 1,
               last_sent_at: now.toISOString(),
             });
