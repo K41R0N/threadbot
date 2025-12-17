@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useUser } from '@clerk/nextjs';
 import { Button } from '@/components/ui/button';
@@ -15,6 +15,23 @@ import type { BotConfig } from '@/lib/supabase';
 type SettingsTab = 'general' | 'telegram' | 'schedule' | 'notion' | 'advanced';
 
 export default function SettingsPage() {
+  return (
+    <Suspense fallback={
+      <AuthenticatedLayout currentPage="settings" showSettingsButton={false}>
+        <div className="container mx-auto px-4 py-8 max-w-5xl">
+          <div className="text-center py-12">
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-black mb-4"></div>
+            <p className="text-gray-600">Loading settings...</p>
+          </div>
+        </div>
+      </AuthenticatedLayout>
+    }>
+      <SettingsContent />
+    </Suspense>
+  );
+}
+
+function SettingsContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { isSignedIn, isLoaded } = useUser();
