@@ -105,13 +105,16 @@ export async function POST(request: NextRequest) {
         // Use detected timezone from verification code, or fall back to default
         const detectedTimezone = verification.timezone || 'America/New_York';
 
+        // Type assertion for Supabase query result
+        const configData = existingConfig as { id: string; is_active: boolean } | null;
+
         const configUpdate: Database['public']['Tables']['bot_configs']['Update'] = {
           telegram_chat_id: chatId,
           // Auto-activate if user has prompts
-          is_active: hasPrompts ? true : (existingConfig?.is_active || false),
+          is_active: hasPrompts ? true : (configData?.is_active || false),
           prompt_source: hasPrompts ? 'agent' : 'notion',
           // Set defaults if creating new config
-          ...(existingConfig ? {} : {
+          ...(configData ? {} : {
             timezone: detectedTimezone, // Use detected timezone from browser
             morning_time: '09:00',
             evening_time: '18:00',
@@ -121,7 +124,7 @@ export async function POST(request: NextRequest) {
           }),
         };
 
-        if (existingConfig) {
+        if (configData) {
           // Update existing config
           await supabase
             .from('bot_configs')
