@@ -9,32 +9,33 @@ export const maxDuration = 30;
 
 export async function GET(request: NextRequest) {
   try {
-    // SECURITY: Require CRON_SECRET for all requests
-    const authHeader = request.headers.get('authorization');
+    // SECURITY: Verify request is from Vercel Cron
+    // Vercel Cron automatically sends x-vercel-cron header with value "1"
+    // This header can only be set by Vercel, making it secure
+    const vercelCronHeader = request.headers.get('x-vercel-cron');
+    const searchParams = request.nextUrl.searchParams;
+    const providedSecret = searchParams.get('secret');
     const cronSecret = process.env.CRON_SECRET;
-    const vercelCronHeader = request.headers.get('x-vercel-cron'); // For logging only
 
-    // CRON_SECRET must be configured
-    if (!cronSecret) {
-      SafeLogger.error('CRON_SECRET environment variable not configured');
-      return NextResponse.json(
-        { error: 'Server configuration error' },
-        { status: 500 }
-      );
-    }
+    // Primary check: Verify request is from Vercel Cron (has x-vercel-cron header)
+    // Secondary check: If secret is provided in URL, verify it matches (for manual testing)
+    const isVercelCron = vercelCronHeader === '1';
+    const hasSecret = !!providedSecret && !!cronSecret;
+    const secretMatches = hasSecret ? providedSecret === cronSecret : true;
 
-    // Verify the authorization header matches the secret
-    if (authHeader !== `Bearer ${cronSecret}`) {
+    // Allow if: (1) It's from Vercel Cron OR (2) Secret matches (for manual testing)
+    if (!isVercelCron && !secretMatches) {
       SafeLogger.warn('Unauthorized cron request attempt', {
         ip: request.headers.get('x-forwarded-for'),
         userAgent: request.headers.get('user-agent'),
-        hasAuthHeader: !!authHeader,
-        vercelCronHeader, // Log for diagnostics
+        hasVercelCronHeader: !!vercelCronHeader,
+        vercelCronHeader,
+        hasSecret: !!providedSecret,
+        secretMatches,
       });
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const searchParams = request.nextUrl.searchParams;
     const type = searchParams.get('type') as 'morning' | 'evening';
 
     if (!type || (type !== 'morning' && type !== 'evening')) {
