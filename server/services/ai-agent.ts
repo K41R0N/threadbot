@@ -240,23 +240,56 @@ Context:
 - Target Audience: ${contextAnalysis.targetAudience}
 - Core Themes: ${contextAnalysis.coreThemes.join(', ')}
 
-REQUIREMENTS:
-1. Create EXACTLY 5 open-ended questions in the "prompts" array
-2. Questions must be thought-starters, not statements
-3. Questions should align with the weekly theme
-4. Questions should be appropriate for ${timeOfDay}
-5. Questions should inspire the user to write their own take
-6. Vary question styles (why, what, how, reflection, action)
+CRITICAL REQUIREMENTS FOR DIVERSITY:
+1. Create EXACTLY 5 open-ended questions that are genuinely different from each other
+2. Each question must use a DISTINCT structure and approach - avoid formulaic patterns
+3. Vary sentence length: mix short punchy questions with longer, more complex ones
+4. Vary question types across these categories:
+   - Direct challenge: "Which assumption about [topic] needs questioning?"
+   - Comparative analysis: "How does [X] differ from [Y] in ways that matter?"
+   - Personal reflection: "When did you last notice [phenomenon] in your own experience?"
+   - Critical examination: "What evidence contradicts the common narrative about [topic]?"
+   - Action-oriented: "What specific step could you take to [action]?"
+   - Counterintuitive: "Why might [unexpected perspective] be more accurate than [common belief]?"
+   - Pattern recognition: "What pattern do you see when you compare [A] and [B]?"
 
-DO NOT:
-- Write pre-written copy or statements
-- Create prompts that can be answered with yes/no
-- Repeat questions from previous days
+STRICT PROHIBITIONS (to avoid repetition):
+- DO NOT start multiple questions with "What would it look like if..."
+- DO NOT start multiple questions with "How might we..."
+- DO NOT start multiple questions with "What would..."
+- DO NOT use similar phrasing patterns across questions
+- DO NOT create questions that all follow the same structure
+- DO NOT write generic questions that could apply to any topic
+
+ENCOURAGE CRITICAL THINKING:
+- Include at least 2 questions that challenge assumptions or conventional wisdom
+- Include at least 1 question that requires the user to examine their own experience critically
+- Include at least 1 question that invites comparison or contrast
+- Make questions feel like genuine inquiry, not rhetorical exercises
+
+EXAMPLES OF GOOD DIVERSE QUESTIONS:
+✅ "Which tool in your daily routine feels neutral but actually shapes your behavior in ways you haven't examined?"
+✅ "When you compare how [X] operates versus [Y], what hidden pattern becomes visible?"
+✅ "What assumption about [topic] are you holding that might be limiting your perspective?"
+✅ "Reflecting on yesterday, which moment revealed the gap between how a system promises to work and how it actually operates?"
+✅ "If you redesigned [specific thing] to prioritize [value] over [current priority], what would break first?"
+
+EXAMPLES OF BAD REPETITIVE QUESTIONS (AVOID THESE PATTERNS):
+❌ "What would it look like if your device was designed for agency?"
+❌ "What would a technology look like if it enhanced your sense of agency?"
+❌ "How might we distinguish between tools that enhance agency?"
+❌ "What would change if technology prioritized agency?"
+
+ADDITIONAL REQUIREMENTS:
+- Questions should align with the weekly theme but approach it from different angles
+- Questions should be appropriate for ${timeOfDay} (morning = forward-looking, evening = reflective)
+- Questions should inspire the user to write their own unique take, not echo common talking points
+- Each question should feel like it's genuinely questioning something, not just prompting a response
 
 Return the questions as an array of 5 strings in the "prompts" field.
 TONE: ${contextAnalysis.brandVoice}`,
-        temperature: 0.9,
-        maxTokens: 1000,
+        temperature: 0.95,
+        maxTokens: 1500,
       });
 
       const typedObject = object as z.infer<typeof DailyPromptSchema>;
