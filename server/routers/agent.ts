@@ -365,25 +365,49 @@ export const agentRouter = router({
         endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Invalid date format (expected YYYY-MM-DD)'),
         useClaude: z.boolean().default(false),
         bypassWeeklyLimit: z.boolean().default(false), // If true, spend 1 credit to bypass DeepSeek cooldown
-      }).refine((data) => {
+      }).superRefine((data, ctx) => {
         // SECURITY: Prevent API cost explosion by limiting date ranges
         const start = new Date(data.startDate);
         const end = new Date(data.endDate);
+
+        // Validate date parsing
+        if (isNaN(start.getTime())) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: 'Invalid start date value',
+            path: ['startDate'],
+          });
+          return;
+        }
+
+        if (isNaN(end.getTime())) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: 'Invalid end date value',
+            path: ['endDate'],
+          });
+          return;
+        }
+
         const days = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
 
-        if (isNaN(start.getTime()) || isNaN(end.getTime())) {
-          throw new Error('Invalid date values');
-        }
-
+        // Validate date order
         if (days < 0) {
-          throw new Error('End date must be after start date');
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: 'End date must be after start date',
+            path: ['endDate'],
+          });
         }
 
+        // Validate maximum range (31 days)
         if (days > 31) {
-          throw new Error('Date range cannot exceed 31 days (1 month maximum)');
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: 'Date range cannot exceed 31 days (1 month maximum)',
+            path: ['endDate'],
+          });
         }
-
-        return true;
       })
     )
     .mutation(async ({ ctx, input }) => {
