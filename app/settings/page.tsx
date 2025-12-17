@@ -58,8 +58,8 @@ export default function SettingsPage() {
   const shouldSaveToStorage = useRef(false); // Track when to start saving to localStorage
   const hasRestoredFromStorage = useRef(false); // Track if we restored from localStorage
 
-  // Get bot username from environment
-  const BOT_USERNAME = process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME || 'threadbot_bot';
+  // Get bot username from environment (strip @ if present)
+  const BOT_USERNAME = (process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME || 'threadbot_bot').replace(/^@/, '');
 
   // Generate verification code mutation
   const generateCode = trpc.bot.generateVerificationCode.useMutation({

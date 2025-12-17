@@ -12,8 +12,8 @@ import { PromptCalendar } from '@/components/calendar/prompt-calendar';
 import { PromptEditPanel } from '@/components/calendar/prompt-edit-panel';
 import { AuthenticatedLayout } from '@/components/layout/authenticated-layout';
 
-// Get bot username from environment or use default
-const BOT_USERNAME = process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME || 'threadbot_bot';
+// Get bot username from environment or use default (strip @ if present)
+const BOT_USERNAME = (process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME || 'threadbot_bot').replace(/^@/, '');
 
 export default function DatabaseRangePage({
   params,
