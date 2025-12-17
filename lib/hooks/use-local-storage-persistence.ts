@@ -32,11 +32,19 @@ export function useLocalStoragePersistence<T extends Record<string, any>>(
   } = options;
 
   const isInitialMount = useRef(true);
+  const hasRestored = useRef(false);
   const lastSavedState = useRef<string | null>(null);
+  const onRestoreRef = useRef(onRestore);
 
-  // Restore state on mount
+  // Keep onRestore ref up to date without causing effect re-runs
   useEffect(() => {
-    if (!enabled || typeof window === 'undefined') return;
+    onRestoreRef.current = onRestore;
+  }, [onRestore]);
+
+  // Restore state on mount (only once)
+  useEffect(() => {
+    if (!enabled || typeof window === 'undefined' || hasRestored.current) return;
+    hasRestored.current = true;
 
     try {
       const stored = localStorage.getItem(key);
@@ -56,15 +64,20 @@ export function useLocalStoragePersistence<T extends Record<string, any>>(
         delete restored[excludedKey];
       });
 
-      if (Object.keys(restored).length > 0) {
-        onRestore?.(restored);
+      if (Object.keys(restored).length > 0 && onRestoreRef.current) {
+        // Use requestAnimationFrame to defer state updates to next render cycle
+        // This ensures state updates happen outside the render phase
+        requestAnimationFrame(() => {
+          onRestoreRef.current?.(restored);
+        });
       }
     } catch (error) {
       // Corrupted data - remove it
       console.warn(`Failed to restore localStorage data for key "${key}":`, error);
       localStorage.removeItem(key);
     }
-  }, [key, enabled, maxAge, excludeKeys, onRestore]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key, enabled, maxAge]); // Removed onRestore and excludeKeys from deps to prevent infinite loops
 
   // Save state on change (debounced)
   useEffect(() => {
