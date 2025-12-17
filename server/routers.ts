@@ -120,11 +120,14 @@ export const appRouter = router({
         // Check if config exists
         const { data: existingConfig } = await supabase
           .from('bot_configs')
-          .select('id')
+          .select('id, is_active')
           .eq('user_id', ctx.userId)
           .single();
 
-        if (existingConfig) {
+        // Type assertion for Supabase query result
+        const configData = existingConfig as { id: string; is_active: boolean } | null;
+
+        if (configData) {
           // UPDATE existing config
           const updateData: Database['public']['Tables']['bot_configs']['Update'] = {};
           // Support clearing tokens by distinguishing undefined (not provided) from null (clear)
@@ -139,7 +142,7 @@ export const appRouter = router({
           if (input.promptSource) updateData.prompt_source = input.promptSource;
 
           // AUTO-ACTIVATION: If Telegram chat ID is being set and bot was inactive, auto-activate
-          if (input.telegramChatId && !existingConfig.is_active && input.isActive === undefined) {
+          if (input.telegramChatId && !configData.is_active && input.isActive === undefined) {
             // Check if user has prompts (AI path) - if so, auto-activate
             const { data: prompts } = await supabase
               .from('user_prompts')
@@ -738,6 +741,9 @@ export const appRouter = router({
           .eq('user_id', ctx.userId)
           .single();
 
+        // Type assertion for Supabase query result
+        const configData = existingConfig as { id: string; is_active: boolean } | null;
+
         const updateData: Database['public']['Tables']['bot_configs']['Update'] = {
           telegram_chat_id: input.telegramChatId,
           timezone,
@@ -748,7 +754,7 @@ export const appRouter = router({
           is_active: hasPrompts ? true : false,
         };
 
-        if (existingConfig) {
+        if (configData) {
           await supabase
             .from('bot_configs')
             // @ts-expect-error Supabase v2.80.0 type inference issue
