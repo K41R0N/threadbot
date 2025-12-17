@@ -182,28 +182,28 @@ export function UnifiedOnboardingModal({ isOpen, onClose }: UnifiedOnboardingMod
   // Welcome Steps
   if (currentStep === 'welcome') {
     return (
-      <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">
-        <div className="bg-white border-4 border-black max-w-2xl w-full">
+      <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50 overflow-y-auto">
+        <div className="bg-white border-2 sm:border-4 border-black max-w-2xl w-full my-4 sm:my-8">
           <div className="h-2 bg-gray-200">
             <div className="h-full bg-black transition-all" style={{ width: '33%' }} />
           </div>
-          <div className="p-8 md:p-12">
-            <div className="text-center mb-8">
-              <div className="text-7xl mb-4">🤖</div>
-              <h2 className="text-4xl font-display mb-3">WELCOME TO THREADBOT</h2>
-              <p className="text-lg text-gray-600">Your AI-powered journaling companion that delivers daily prompts to Telegram and logs your reflections.</p>
+          <div className="p-6 sm:p-8 md:p-12">
+            <div className="text-center mb-6 sm:mb-8">
+              <div className="text-5xl sm:text-6xl md:text-7xl mb-3 sm:mb-4">🤖</div>
+              <h2 className="text-2xl sm:text-3xl md:text-4xl font-display mb-2 sm:mb-3">WELCOME TO THREADBOT</h2>
+              <p className="text-sm sm:text-base md:text-lg text-gray-600 px-2">Your AI-powered journaling companion that delivers daily prompts to Telegram and logs your reflections.</p>
             </div>
-            <div className="space-y-4 mb-8">
+            <div className="space-y-3 sm:space-y-4 mb-6 sm:mb-8">
               {['AI generates personalized prompts based on your brand', 'Prompts delivered to Telegram twice daily', 'Responses automatically logged'].map((bullet, i) => (
                 <div key={i} className="flex items-start gap-3 text-gray-700">
                   <div className="w-2 h-2 bg-black rounded-full mt-2 flex-shrink-0" />
-                  <p>{bullet}</p>
+                  <p className="text-sm sm:text-base">{bullet}</p>
                 </div>
               ))}
             </div>
-            <div className="flex justify-between pt-6 border-t-2 border-gray-200">
-              <Button variant="outline" onClick={handleSkip}>SKIP FOR NOW</Button>
-              <Button onClick={handleWelcomeNext}>NEXT →</Button>
+            <div className="flex flex-col sm:flex-row justify-between gap-3 sm:gap-0 pt-4 sm:pt-6 border-t-2 border-gray-200">
+              <Button variant="outline" onClick={handleSkip} className="w-full sm:w-auto text-sm sm:text-base">SKIP FOR NOW</Button>
+              <Button onClick={handleWelcomeNext} className="w-full sm:w-auto text-sm sm:text-base">NEXT →</Button>
             </div>
           </div>
         </div>
@@ -213,28 +213,28 @@ export function UnifiedOnboardingModal({ isOpen, onClose }: UnifiedOnboardingMod
 
   if (currentStep === 'how-it-works') {
     return (
-      <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">
-        <div className="bg-white border-4 border-black max-w-2xl w-full">
+      <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50 overflow-y-auto">
+        <div className="bg-white border-2 sm:border-4 border-black max-w-2xl w-full my-4 sm:my-8">
           <div className="h-2 bg-gray-200">
             <div className="h-full bg-black transition-all" style={{ width: '66%' }} />
           </div>
-          <div className="p-8 md:p-12">
-            <div className="text-center mb-8">
-              <div className="text-7xl mb-4">⚡</div>
-              <h2 className="text-4xl font-display mb-3">HOW IT WORKS</h2>
-              <p className="text-lg text-gray-600">Threadbot makes daily reflection effortless with three simple steps:</p>
+          <div className="p-6 sm:p-8 md:p-12">
+            <div className="text-center mb-6 sm:mb-8">
+              <div className="text-5xl sm:text-6xl md:text-7xl mb-3 sm:mb-4">⚡</div>
+              <h2 className="text-2xl sm:text-3xl md:text-4xl font-display mb-2 sm:mb-3">HOW IT WORKS</h2>
+              <p className="text-sm sm:text-base md:text-lg text-gray-600 px-2">Threadbot makes daily reflection effortless with three simple steps:</p>
             </div>
-            <div className="space-y-4 mb-8">
+            <div className="space-y-3 sm:space-y-4 mb-6 sm:mb-8">
               {['1. Create an AI Database - Generate 60 prompts for the month', '2. Connect Telegram - Set up your bot and schedule', '3. Receive & Respond - Get prompts twice daily, reply directly in Telegram'].map((bullet, i) => (
                 <div key={i} className="flex items-start gap-3 text-gray-700">
                   <div className="w-2 h-2 bg-black rounded-full mt-2 flex-shrink-0" />
-                  <p>{bullet}</p>
+                  <p className="text-sm sm:text-base">{bullet}</p>
                 </div>
               ))}
             </div>
-            <div className="flex justify-between pt-6 border-t-2 border-gray-200">
-              <Button variant="outline" onClick={handleBack}>← BACK</Button>
-              <Button onClick={handleHowItWorksNext}>NEXT →</Button>
+            <div className="flex flex-col sm:flex-row justify-between gap-3 sm:gap-0 pt-4 sm:pt-6 border-t-2 border-gray-200">
+              <Button variant="outline" onClick={handleBack} className="w-full sm:w-auto text-sm sm:text-base">← BACK</Button>
+              <Button onClick={handleHowItWorksNext} className="w-full sm:w-auto text-sm sm:text-base">NEXT →</Button>
             </div>
           </div>
         </div>
@@ -244,28 +244,28 @@ export function UnifiedOnboardingModal({ isOpen, onClose }: UnifiedOnboardingMod
 
   if (currentStep === 'choose-workflow') {
     return (
-      <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">
-        <div className="bg-white border-4 border-black max-w-2xl w-full">
+      <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50 overflow-y-auto">
+        <div className="bg-white border-2 sm:border-4 border-black max-w-2xl w-full my-4 sm:my-8">
           <div className="h-2 bg-gray-200">
             <div className="h-full bg-black transition-all" style={{ width: '100%' }} />
           </div>
-          <div className="p-8 md:p-12">
-            <div className="text-center mb-8">
-              <div className="text-7xl mb-4">🎯</div>
-              <h2 className="text-4xl font-display mb-3">CHOOSE YOUR WORKFLOW</h2>
-              <p className="text-lg text-gray-600">Pick the approach that works best for you:</p>
+          <div className="p-6 sm:p-8 md:p-12">
+            <div className="text-center mb-6 sm:mb-8">
+              <div className="text-5xl sm:text-6xl md:text-7xl mb-3 sm:mb-4">🎯</div>
+              <h2 className="text-2xl sm:text-3xl md:text-4xl font-display mb-2 sm:mb-3">CHOOSE YOUR WORKFLOW</h2>
+              <p className="text-sm sm:text-base md:text-lg text-gray-600 px-2">Pick the approach that works best for you:</p>
             </div>
-            <div className="space-y-4 mb-8">
+            <div className="space-y-3 sm:space-y-4 mb-6 sm:mb-8">
               {['🤖 AI Agent - Let AI generate themed prompts (DeepSeek = Free, Claude = 1 credit)', '📝 Notion - Connect your own Notion database of prompts', 'You can switch between them anytime in Settings'].map((bullet, i) => (
                 <div key={i} className="flex items-start gap-3 text-gray-700">
                   <div className="w-2 h-2 bg-black rounded-full mt-2 flex-shrink-0" />
-                  <p>{bullet}</p>
+                  <p className="text-sm sm:text-base">{bullet}</p>
                 </div>
               ))}
             </div>
-            <div className="flex justify-between pt-6 border-t-2 border-gray-200">
-              <Button variant="outline" onClick={handleBack}>← BACK</Button>
-              <Button onClick={handleChooseWorkflowNext}>CHOOSE →</Button>
+            <div className="flex flex-col sm:flex-row justify-between gap-3 sm:gap-0 pt-4 sm:pt-6 border-t-2 border-gray-200">
+              <Button variant="outline" onClick={handleBack} className="w-full sm:w-auto text-sm sm:text-base">← BACK</Button>
+              <Button onClick={handleChooseWorkflowNext} className="w-full sm:w-auto text-sm sm:text-base">CHOOSE →</Button>
             </div>
           </div>
         </div>
@@ -276,26 +276,26 @@ export function UnifiedOnboardingModal({ isOpen, onClose }: UnifiedOnboardingMod
   // Path Selection
   if (currentStep === 'pick-path') {
     return (
-      <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">
-        <div className="bg-white border-4 border-black max-w-2xl w-full">
-          <div className="border-b-2 border-black p-6 flex justify-between items-center">
-            <h2 className="text-3xl font-display">CHOOSE YOUR PATH</h2>
-            <button onClick={handleSkip} className="text-2xl hover:opacity-50" title="Close">×</button>
+      <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50 overflow-y-auto">
+        <div className="bg-white border-2 sm:border-4 border-black max-w-2xl w-full my-4 sm:my-8">
+          <div className="border-b-2 border-black p-4 sm:p-6 flex justify-between items-center">
+            <h2 className="text-xl sm:text-2xl md:text-3xl font-display">CHOOSE YOUR PATH</h2>
+            <button onClick={handleSkip} className="text-xl sm:text-2xl hover:opacity-50 flex-shrink-0 ml-2" title="Close">×</button>
           </div>
-          <div className="p-8 space-y-4">
+          <div className="p-4 sm:p-6 md:p-8 space-y-3 sm:space-y-4">
             <button
               onClick={handlePickAI}
               disabled={completeOnboarding.isPending}
-              className="w-full border-2 border-black p-6 text-left hover:bg-black hover:text-white transition group"
+              className="w-full border-2 border-black p-4 sm:p-6 text-left hover:bg-black hover:text-white transition group"
             >
-              <div className="flex items-start gap-4">
-                <div className="text-4xl">🤖</div>
-                <div className="flex-1">
-                  <div className="font-display text-2xl mb-2">AI PROMPT GENERATION</div>
-                  <div className="text-sm mb-3 group-hover:text-gray-300">
+              <div className="flex items-start gap-3 sm:gap-4">
+                <div className="text-3xl sm:text-4xl flex-shrink-0">🤖</div>
+                <div className="flex-1 min-w-0">
+                  <div className="font-display text-lg sm:text-xl md:text-2xl mb-1 sm:mb-2">AI PROMPT GENERATION</div>
+                  <div className="text-xs sm:text-sm mb-2 sm:mb-3 group-hover:text-gray-300">
                     Let AI analyze your brand and generate personalized prompts
                   </div>
-                  <ul className="text-sm space-y-1 group-hover:text-gray-300">
+                  <ul className="text-xs sm:text-sm space-y-1 group-hover:text-gray-300">
                     <li>• Generate 60 unique prompts (30 days)</li>
                     <li>• Free: DeepSeek R1 | Paid: Claude Sonnet 4</li>
                     <li>• Start immediately</li>
@@ -306,16 +306,16 @@ export function UnifiedOnboardingModal({ isOpen, onClose }: UnifiedOnboardingMod
 
             <button
               onClick={handlePickNotion}
-              className="w-full border-2 border-black p-6 text-left hover:bg-black hover:text-white transition group"
+              className="w-full border-2 border-black p-4 sm:p-6 text-left hover:bg-black hover:text-white transition group"
             >
-              <div className="flex items-start gap-4">
-                <div className="text-4xl">📓</div>
-                <div className="flex-1">
-                  <div className="font-display text-2xl mb-2">NOTION DATABASE</div>
-                  <div className="text-sm mb-3 group-hover:text-gray-300">
+              <div className="flex items-start gap-3 sm:gap-4">
+                <div className="text-3xl sm:text-4xl flex-shrink-0">📓</div>
+                <div className="flex-1 min-w-0">
+                  <div className="font-display text-lg sm:text-xl md:text-2xl mb-1 sm:mb-2">NOTION DATABASE</div>
+                  <div className="text-xs sm:text-sm mb-2 sm:mb-3 group-hover:text-gray-300">
                     Connect your existing Notion database with prompts
                   </div>
-                  <ul className="text-sm space-y-1 group-hover:text-gray-300">
+                  <ul className="text-xs sm:text-sm space-y-1 group-hover:text-gray-300">
                     <li>• Import existing prompts</li>
                     <li>• Set up Telegram delivery</li>
                     <li>• Requires Notion + Telegram setup</li>
@@ -324,8 +324,8 @@ export function UnifiedOnboardingModal({ isOpen, onClose }: UnifiedOnboardingMod
               </div>
             </button>
 
-            <div className="pt-4 border-t-2 border-gray-200">
-              <Button variant="outline" onClick={handleBack} className="w-full">
+            <div className="pt-3 sm:pt-4 border-t-2 border-gray-200">
+              <Button variant="outline" onClick={handleBack} className="w-full text-sm sm:text-base">
                 ← BACK TO INTRO
               </Button>
             </div>
@@ -338,39 +338,39 @@ export function UnifiedOnboardingModal({ isOpen, onClose }: UnifiedOnboardingMod
   // Notion Setup Steps
   if (currentStep === 'notion-setup') {
     return (
-      <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">
-        <div className="bg-white border-4 border-black max-w-2xl w-full">
-          <div className="border-b-2 border-black p-6 flex justify-between items-center">
-            <h2 className="text-3xl font-display">NOTION SETUP</h2>
-            <button onClick={handleSkip} className="text-2xl hover:opacity-50">×</button>
+      <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50 overflow-y-auto">
+        <div className="bg-white border-2 sm:border-4 border-black max-w-2xl w-full my-4 sm:my-8">
+          <div className="border-b-2 border-black p-4 sm:p-6 flex justify-between items-center">
+            <h2 className="text-xl sm:text-2xl md:text-3xl font-display">NOTION SETUP</h2>
+            <button onClick={handleSkip} className="text-xl sm:text-2xl hover:opacity-50 flex-shrink-0 ml-2">×</button>
           </div>
-          <div className="p-6 border-b-2 border-black">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 border-2 border-black bg-black text-white flex items-center justify-center font-display text-sm">1</div>
-              <span className="font-display text-sm">NOTION</span>
-              <div className="flex-1 h-0.5 bg-gray-300" />
-              <div className="w-8 h-8 border-2 border-gray-300 text-gray-300 flex items-center justify-center font-display text-sm">2</div>
-              <span className="font-display text-sm text-gray-300">TELEGRAM</span>
-              <div className="flex-1 h-0.5 bg-gray-300" />
-              <div className="w-8 h-8 border-2 border-gray-300 text-gray-300 flex items-center justify-center font-display text-sm">3</div>
-              <span className="font-display text-sm text-gray-300">SCHEDULE</span>
+          <div className="p-4 sm:p-6 border-b-2 border-black overflow-x-auto">
+            <div className="flex items-center gap-1 sm:gap-2 min-w-max">
+              <div className="w-6 h-6 sm:w-8 sm:h-8 border-2 border-black bg-black text-white flex items-center justify-center font-display text-xs sm:text-sm flex-shrink-0">1</div>
+              <span className="font-display text-xs sm:text-sm whitespace-nowrap">NOTION</span>
+              <div className="flex-1 h-0.5 bg-gray-300 min-w-[20px]" />
+              <div className="w-6 h-6 sm:w-8 sm:h-8 border-2 border-gray-300 text-gray-300 flex items-center justify-center font-display text-xs sm:text-sm flex-shrink-0">2</div>
+              <span className="font-display text-xs sm:text-sm text-gray-300 whitespace-nowrap">TELEGRAM</span>
+              <div className="flex-1 h-0.5 bg-gray-300 min-w-[20px]" />
+              <div className="w-6 h-6 sm:w-8 sm:h-8 border-2 border-gray-300 text-gray-300 flex items-center justify-center font-display text-xs sm:text-sm flex-shrink-0">3</div>
+              <span className="font-display text-xs sm:text-sm text-gray-300 whitespace-nowrap">SCHEDULE</span>
             </div>
           </div>
-          <form onSubmit={handleNotionSubmit} className="p-6 space-y-6">
+          <form onSubmit={handleNotionSubmit} className="p-4 sm:p-6 space-y-4 sm:space-y-6">
             <div>
-              <label className="block font-display text-sm mb-2">NOTION INTEGRATION TOKEN</label>
-              <Input type="password" value={notionToken} onChange={(e) => setNotionToken(e.target.value)} placeholder="secret_..." required />
+              <label className="block font-display text-xs sm:text-sm mb-2">NOTION INTEGRATION TOKEN</label>
+              <Input type="password" value={notionToken} onChange={(e) => setNotionToken(e.target.value)} placeholder="secret_..." required className="text-sm sm:text-base" />
               <p className="text-xs text-gray-600 mt-1">Get your token from <a href="https://www.notion.so/my-integrations" target="_blank" rel="noopener noreferrer" className="underline">notion.so/my-integrations</a></p>
             </div>
             <div>
-              <label className="block font-display text-sm mb-2">DATABASE ID</label>
-              <Input type="text" value={databaseId} onChange={(e) => setDatabaseId(e.target.value)} placeholder="abc123..." required />
+              <label className="block font-display text-xs sm:text-sm mb-2">DATABASE ID</label>
+              <Input type="text" value={databaseId} onChange={(e) => setDatabaseId(e.target.value)} placeholder="abc123..." required className="text-sm sm:text-base" />
               <p className="text-xs text-gray-600 mt-1">Found in your database URL</p>
             </div>
-            <div className="flex gap-3">
-              <Button type="button" variant="outline" onClick={handleBack}>← BACK</Button>
-              <Button type="button" variant="outline" onClick={handleSkip} className="flex-1">SKIP</Button>
-              <Button type="submit" disabled={createConfig.isPending}>
+            <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+              <Button type="button" variant="outline" onClick={handleBack} className="w-full sm:w-auto text-sm sm:text-base">← BACK</Button>
+              <Button type="button" variant="outline" onClick={handleSkip} className="flex-1 text-sm sm:text-base">SKIP</Button>
+              <Button type="submit" disabled={createConfig.isPending} className="w-full sm:w-auto text-sm sm:text-base">
                 {createConfig.isPending ? 'CONNECTING...' : 'NEXT →'}
               </Button>
             </div>
@@ -382,39 +382,39 @@ export function UnifiedOnboardingModal({ isOpen, onClose }: UnifiedOnboardingMod
 
   if (currentStep === 'telegram-setup') {
     return (
-      <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">
-        <div className="bg-white border-4 border-black max-w-2xl w-full">
-          <div className="border-b-2 border-black p-6 flex justify-between items-center">
-            <h2 className="text-3xl font-display">TELEGRAM SETUP</h2>
-            <button onClick={handleSkip} className="text-2xl hover:opacity-50">×</button>
+      <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50 overflow-y-auto">
+        <div className="bg-white border-2 sm:border-4 border-black max-w-2xl w-full my-4 sm:my-8">
+          <div className="border-b-2 border-black p-4 sm:p-6 flex justify-between items-center">
+            <h2 className="text-xl sm:text-2xl md:text-3xl font-display">TELEGRAM SETUP</h2>
+            <button onClick={handleSkip} className="text-xl sm:text-2xl hover:opacity-50 flex-shrink-0 ml-2">×</button>
           </div>
-          <div className="p-6 border-b-2 border-black">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 border-2 border-black text-black flex items-center justify-center font-display text-sm">✓</div>
-              <span className="font-display text-sm">NOTION</span>
-              <div className="flex-1 h-0.5 bg-black" />
-              <div className="w-8 h-8 border-2 border-black bg-black text-white flex items-center justify-center font-display text-sm">2</div>
-              <span className="font-display text-sm">TELEGRAM</span>
-              <div className="flex-1 h-0.5 bg-gray-300" />
-              <div className="w-8 h-8 border-2 border-gray-300 text-gray-300 flex items-center justify-center font-display text-sm">3</div>
-              <span className="font-display text-sm text-gray-300">SCHEDULE</span>
+          <div className="p-4 sm:p-6 border-b-2 border-black overflow-x-auto">
+            <div className="flex items-center gap-1 sm:gap-2 min-w-max">
+              <div className="w-6 h-6 sm:w-8 sm:h-8 border-2 border-black text-black flex items-center justify-center font-display text-xs sm:text-sm flex-shrink-0">✓</div>
+              <span className="font-display text-xs sm:text-sm whitespace-nowrap">NOTION</span>
+              <div className="flex-1 h-0.5 bg-black min-w-[20px]" />
+              <div className="w-6 h-6 sm:w-8 sm:h-8 border-2 border-black bg-black text-white flex items-center justify-center font-display text-xs sm:text-sm flex-shrink-0">2</div>
+              <span className="font-display text-xs sm:text-sm whitespace-nowrap">TELEGRAM</span>
+              <div className="flex-1 h-0.5 bg-gray-300 min-w-[20px]" />
+              <div className="w-6 h-6 sm:w-8 sm:h-8 border-2 border-gray-300 text-gray-300 flex items-center justify-center font-display text-xs sm:text-sm flex-shrink-0">3</div>
+              <span className="font-display text-xs sm:text-sm text-gray-300 whitespace-nowrap">SCHEDULE</span>
             </div>
           </div>
-          <form onSubmit={handleTelegramSubmit} className="p-6 space-y-6">
+          <form onSubmit={handleTelegramSubmit} className="p-4 sm:p-6 space-y-4 sm:space-y-6">
             <div>
-              <label className="block font-display text-sm mb-2">TELEGRAM BOT TOKEN</label>
-              <Input type="password" value={telegramToken} onChange={(e) => setTelegramToken(e.target.value)} placeholder="123456789:ABC..." required />
+              <label className="block font-display text-xs sm:text-sm mb-2">TELEGRAM BOT TOKEN</label>
+              <Input type="password" value={telegramToken} onChange={(e) => setTelegramToken(e.target.value)} placeholder="123456789:ABC..." required className="text-sm sm:text-base" />
               <p className="text-xs text-gray-600 mt-1">Create a bot via <a href="https://t.me/botfather" target="_blank" rel="noopener noreferrer" className="underline">@BotFather</a></p>
             </div>
             <div>
-              <label className="block font-display text-sm mb-2">YOUR TELEGRAM CHAT ID</label>
-              <Input type="text" value={chatId} onChange={(e) => setChatId(e.target.value)} placeholder="123456789" required />
+              <label className="block font-display text-xs sm:text-sm mb-2">YOUR TELEGRAM CHAT ID</label>
+              <Input type="text" value={chatId} onChange={(e) => setChatId(e.target.value)} placeholder="123456789" required className="text-sm sm:text-base" />
               <p className="text-xs text-gray-600 mt-1">Get your ID from <a href="https://t.me/userinfobot" target="_blank" rel="noopener noreferrer" className="underline">@userinfobot</a></p>
             </div>
-            <div className="flex gap-3">
-              <Button type="button" variant="outline" onClick={handleBack}>← BACK</Button>
-              <Button type="button" variant="outline" onClick={handleSkipTelegram} className="flex-1">SKIP FOR NOW</Button>
-              <Button type="submit" disabled={updateConfig.isPending || setupWebhook.isPending}>
+            <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+              <Button type="button" variant="outline" onClick={handleBack} className="w-full sm:w-auto text-sm sm:text-base">← BACK</Button>
+              <Button type="button" variant="outline" onClick={handleSkipTelegram} className="flex-1 text-sm sm:text-base">SKIP FOR NOW</Button>
+              <Button type="submit" disabled={updateConfig.isPending || setupWebhook.isPending} className="w-full sm:w-auto text-sm sm:text-base">
                 {updateConfig.isPending || setupWebhook.isPending ? 'CONNECTING...' : 'NEXT →'}
               </Button>
             </div>
@@ -426,28 +426,28 @@ export function UnifiedOnboardingModal({ isOpen, onClose }: UnifiedOnboardingMod
 
   if (currentStep === 'schedule-setup') {
     return (
-      <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">
-        <div className="bg-white border-4 border-black max-w-2xl w-full">
-          <div className="border-b-2 border-black p-6 flex justify-between items-center">
-            <h2 className="text-3xl font-display">SCHEDULE SETUP</h2>
-            <button onClick={handleSkip} className="text-2xl hover:opacity-50">×</button>
+      <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50 overflow-y-auto">
+        <div className="bg-white border-2 sm:border-4 border-black max-w-2xl w-full my-4 sm:my-8">
+          <div className="border-b-2 border-black p-4 sm:p-6 flex justify-between items-center">
+            <h2 className="text-xl sm:text-2xl md:text-3xl font-display">SCHEDULE SETUP</h2>
+            <button onClick={handleSkip} className="text-xl sm:text-2xl hover:opacity-50 flex-shrink-0 ml-2">×</button>
           </div>
-          <div className="p-6 border-b-2 border-black">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 border-2 border-black text-black flex items-center justify-center font-display text-sm">✓</div>
-              <span className="font-display text-sm">NOTION</span>
-              <div className="flex-1 h-0.5 bg-black" />
-              <div className="w-8 h-8 border-2 border-black text-black flex items-center justify-center font-display text-sm">✓</div>
-              <span className="font-display text-sm">TELEGRAM</span>
-              <div className="flex-1 h-0.5 bg-black" />
-              <div className="w-8 h-8 border-2 border-black bg-black text-white flex items-center justify-center font-display text-sm">3</div>
-              <span className="font-display text-sm">SCHEDULE</span>
+          <div className="p-4 sm:p-6 border-b-2 border-black overflow-x-auto">
+            <div className="flex items-center gap-1 sm:gap-2 min-w-max">
+              <div className="w-6 h-6 sm:w-8 sm:h-8 border-2 border-black text-black flex items-center justify-center font-display text-xs sm:text-sm flex-shrink-0">✓</div>
+              <span className="font-display text-xs sm:text-sm whitespace-nowrap">NOTION</span>
+              <div className="flex-1 h-0.5 bg-black min-w-[20px]" />
+              <div className="w-6 h-6 sm:w-8 sm:h-8 border-2 border-black text-black flex items-center justify-center font-display text-xs sm:text-sm flex-shrink-0">✓</div>
+              <span className="font-display text-xs sm:text-sm whitespace-nowrap">TELEGRAM</span>
+              <div className="flex-1 h-0.5 bg-black min-w-[20px]" />
+              <div className="w-6 h-6 sm:w-8 sm:h-8 border-2 border-black bg-black text-white flex items-center justify-center font-display text-xs sm:text-sm flex-shrink-0">3</div>
+              <span className="font-display text-xs sm:text-sm whitespace-nowrap">SCHEDULE</span>
             </div>
           </div>
-          <form onSubmit={handleScheduleSubmit} className="p-6 space-y-6">
+          <form onSubmit={handleScheduleSubmit} className="p-4 sm:p-6 space-y-4 sm:space-y-6">
             <div>
-              <label className="block font-display text-sm mb-2">TIMEZONE</label>
-              <select value={timezone} onChange={(e) => setTimezone(e.target.value)} className="w-full border-2 border-black px-4 py-2" required>
+              <label className="block font-display text-xs sm:text-sm mb-2">TIMEZONE</label>
+              <select value={timezone} onChange={(e) => setTimezone(e.target.value)} className="w-full border-2 border-black px-3 sm:px-4 py-2 text-sm sm:text-base" required>
                 <option value="America/New_York">Eastern Time (US)</option>
                 <option value="America/Chicago">Central Time (US)</option>
                 <option value="America/Denver">Mountain Time (US)</option>
@@ -459,16 +459,16 @@ export function UnifiedOnboardingModal({ isOpen, onClose }: UnifiedOnboardingMod
               </select>
             </div>
             <div>
-              <label className="block font-display text-sm mb-2">MORNING TIME</label>
-              <Input type="time" value={morningTime} onChange={(e) => setMorningTime(e.target.value)} required />
+              <label className="block font-display text-xs sm:text-sm mb-2">MORNING TIME</label>
+              <Input type="time" value={morningTime} onChange={(e) => setMorningTime(e.target.value)} required className="text-sm sm:text-base" />
             </div>
             <div>
-              <label className="block font-display text-sm mb-2">EVENING TIME</label>
-              <Input type="time" value={eveningTime} onChange={(e) => setEveningTime(e.target.value)} required />
+              <label className="block font-display text-xs sm:text-sm mb-2">EVENING TIME</label>
+              <Input type="time" value={eveningTime} onChange={(e) => setEveningTime(e.target.value)} required className="text-sm sm:text-base" />
             </div>
-            <div className="flex gap-3">
-              <Button type="button" variant="outline" onClick={handleBack}>← BACK</Button>
-              <Button type="submit" disabled={updateConfig.isPending} className="flex-1">
+            <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+              <Button type="button" variant="outline" onClick={handleBack} className="w-full sm:w-auto text-sm sm:text-base">← BACK</Button>
+              <Button type="submit" disabled={updateConfig.isPending} className="flex-1 text-sm sm:text-base">
                 {updateConfig.isPending ? 'ACTIVATING...' : 'ACTIVATE BOT'}
               </Button>
             </div>

@@ -137,7 +137,7 @@ export class BotService {
         : 'Reply to this message to log your response to Notion.';
       const escapedReplyText = TelegramService.escapeMarkdown(replyText);
 
-      const message = `${escapedGreeting}\n\n${emoji} ${escapedDate} - ${escapedPromptLabel}\n🎯 ${escapedTopic}\n\n${escapedContent}\n\n💬 ${escapedReplyText}`;
+      const message = `${escapedGreeting}\n\n${emoji} ${escapedDate} \\- ${escapedPromptLabel}\n🎯 ${escapedTopic}\n\n${escapedContent}\n\n💬 ${escapedReplyText}`;
 
       await telegram.sendMessage(config.telegram_chat_id, message);
 

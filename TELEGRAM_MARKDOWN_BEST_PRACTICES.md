@@ -3,12 +3,21 @@
 ## Overview
 This document outlines important considerations for sending messages to Telegram using MarkdownV2 format to prevent parsing errors.
 
-## The Error We Fixed
+## The Errors We Fixed
+
+### Error 1: Unescaped Exclamation Mark
 **Error**: `Character '!' is reserved and must be escaped with the preceding '\'`
 
 **Root Cause**: The `greeting` variable ("Good morning!" / "Good afternoon!") contained an unescaped exclamation mark.
 
 **Fix Applied**: All message components are now properly escaped before being included in the message.
+
+### Error 2: Unescaped Hyphen
+**Error**: `Character '-' is reserved and must be escaped with the preceding '\'`
+
+**Root Cause**: The literal ` - ` (space-hyphen-space) separator between date and label in the message template was not escaped.
+
+**Fix Applied**: Changed ` - ` to ` \\- ` in the template string (which results in ` \- ` in the actual message).
 
 ## Key Principles
 
@@ -103,13 +112,17 @@ According to Telegram's MarkdownV2 specification, these characters must be escap
 ```typescript
 // BAD
 const message = `Hello! ${escapedContent}`; // "Hello!" not escaped!
+const message = `${escapedDate} - ${escapedLabel}`; // Literal " - " not escaped!
 ```
 
 ### ✅ DO: Escape Everything
 ```typescript
-// GOOD
+// GOOD - Escape variables
 const escapedGreeting = TelegramService.escapeMarkdown('Hello!');
 const message = `${escapedGreeting} ${escapedContent}`;
+
+// GOOD - Escape literal separators in template strings
+const message = `${escapedDate} \\- ${escapedLabel}`; // " \\- " becomes " \- " in message
 ```
 
 ### ❌ DON'T: Escape After Intentional Formatting
