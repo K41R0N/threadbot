@@ -15,16 +15,27 @@ export const maxDuration = 10;
  */
 export async function POST(request: NextRequest) {
   try {
-    SafeLogger.info('Shared webhook received');
+    SafeLogger.info('Shared webhook received', {
+      timestamp: new Date().toISOString(),
+      hasSecretToken: !!process.env.TELEGRAM_WEBHOOK_SECRET,
+    });
 
     // SECURITY: Verify request is from Telegram using secret token
     const telegramSecretToken = request.headers.get('x-telegram-bot-api-secret-token');
     const expectedSecretToken = process.env.TELEGRAM_WEBHOOK_SECRET;
 
+    SafeLogger.info('Webhook secret token check', {
+      hasExpectedToken: !!expectedSecretToken,
+      hasReceivedToken: !!telegramSecretToken,
+      tokensMatch: expectedSecretToken === telegramSecretToken,
+    });
+
     if (expectedSecretToken && telegramSecretToken !== expectedSecretToken) {
       SafeLogger.warn('Unauthorized webhook request attempt', {
         ip: request.headers.get('x-forwarded-for'),
         hasToken: !!telegramSecretToken,
+        expectedTokenLength: expectedSecretToken.length,
+        receivedTokenLength: telegramSecretToken?.length || 0,
       });
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -56,84 +67,173 @@ export async function POST(request: NextRequest) {
     if (isCommand) {
       const command = messageTextLower.split(' ')[0]; // Get command without parameters
       
-      // Check if user is already linked
-      const { data: existingConfigData } = await supabase
-        .from('bot_configs')
-        .select('user_id, is_active')
-        .eq('telegram_chat_id', chatId)
-        .maybeSingle();
+      SafeLogger.info('Command received', { command, chatId, messageText });
 
-      // Type assertion for Supabase query result
-      const existingConfig = existingConfigData as { user_id: string; is_active: boolean } | null;
+      try {
+        // Check if user is already linked
+        const { data: existingConfigData, error: configError } = await supabase
+          .from('bot_configs')
+          .select('user_id, is_active')
+          .eq('telegram_chat_id', chatId)
+          .maybeSingle();
 
-      if (command === '/start' || command === '/verify') {
-        if (existingConfig) {
-          // User is already linked
+        if (configError) {
+          SafeLogger.error('Failed to query bot config for command', {
+            error: configError.message,
+            chatId,
+            command,
+          });
+        }
+
+        // Type assertion for Supabase query result
+        const existingConfig = existingConfigData as { user_id: string; is_active: boolean } | null;
+
+        if (command === '/start' || command === '/verify') {
+          try {
+            if (existingConfig) {
+              // User is already linked
+              await telegram.sendMessage(
+                chatId,
+                `✅ *You're Already Connected\\!*\n\nYour Telegram account is linked to Threadbot\\.\n\n📱 *Status:* ${existingConfig.is_active ? 'Active' : 'Inactive'}\n\n💡 *Commands:*\n• /status \\- Check your connection status\n• /help \\- Get help\n\n📝 *To receive prompts:*\nMake sure your bot is active in your dashboard settings\\.`
+              );
+              SafeLogger.info('Sent /start response for linked user', { chatId, userId: existingConfig.user_id });
+            } else {
+              // User is not linked - provide verification instructions
+              const dashboardUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://your-app.com';
+              await telegram.sendMessage(
+                chatId,
+                `👋 *Welcome to Threadbot\\!*\n\nTo connect your account:\n\n1️⃣ Go to your Threadbot dashboard\n2️⃣ Click "Connect Telegram" or "Settings" → "Telegram"\n3️⃣ Click "Generate Verification Code"\n4️⃣ Send the 6\\-digit code here\n\n💡 *Or* just say "hello" after generating a code\\.\n\n🔗 *Get started:* ${dashboardUrl}/dashboard`
+              );
+              SafeLogger.info('Sent /start response for unlinked user', { chatId });
+            }
+          } catch (sendError: any) {
+            SafeLogger.error('Failed to send /start response', {
+              error: sendError.message,
+              chatId,
+              command,
+            });
+            // Don't throw - return ok to Telegram
+          }
+          return NextResponse.json({ ok: true });
+        }
+
+        if (command === '/status') {
+          try {
+            if (existingConfig) {
+              const { data: stateData, error: stateError } = await supabase
+                .from('bot_state')
+                .select('last_prompt_type, last_prompt_sent_at')
+                .eq('user_id', existingConfig.user_id)
+                .single();
+
+              if (stateError) {
+                SafeLogger.warn('Failed to query bot state for /status', {
+                  error: stateError.message,
+                  userId: existingConfig.user_id,
+                });
+              }
+
+              // Type assertion for Supabase query result
+              const state = stateData as { last_prompt_type: string | null; last_prompt_sent_at: string | null } | null;
+
+              const lastPrompt = state?.last_prompt_sent_at 
+                ? new Date(state.last_prompt_sent_at).toLocaleString()
+                : 'Never';
+
+              await telegram.sendMessage(
+                chatId,
+                `📊 *Your Threadbot Status*\n\n🔗 *Connection:* ✅ Linked\n📱 *Bot Status:* ${existingConfig.is_active ? '✅ Active' : '❌ Inactive'}\n📅 *Last Prompt:* ${lastPrompt}\n\n💡 To activate your bot, go to Settings → Telegram in your dashboard\\.`
+              );
+              SafeLogger.info('Sent /status response for linked user', { chatId, userId: existingConfig.user_id });
+            } else {
+              await telegram.sendMessage(
+                chatId,
+                `📊 *Your Threadbot Status*\n\n🔗 *Connection:* ❌ Not Linked\n\nTo connect, use /start or /verify\\.`
+              );
+              SafeLogger.info('Sent /status response for unlinked user', { chatId });
+            }
+          } catch (sendError: any) {
+            SafeLogger.error('Failed to send /status response', {
+              error: sendError.message,
+              chatId,
+              command,
+            });
+          }
+          return NextResponse.json({ ok: true });
+        }
+
+        if (command === '/help') {
+          try {
+            await telegram.sendMessage(
+              chatId,
+              `ℹ️ *Threadbot Help*\n\n*Commands:*\n/start \\- Connect your account\n/verify \\- Connect your account\n/status \\- Check connection status\n/help \\- Show this help\n\n*How to Connect:*\n1\\. Go to your dashboard\n2\\. Generate a verification code\n3\\. Send the code here\n\n*Need Support?*\nVisit your dashboard for more help\\.`
+            );
+            SafeLogger.info('Sent /help response', { chatId });
+          } catch (sendError: any) {
+            SafeLogger.error('Failed to send /help response', {
+              error: sendError.message,
+              chatId,
+              command,
+            });
+          }
+          return NextResponse.json({ ok: true });
+        }
+
+        // Unknown command
+        try {
           await telegram.sendMessage(
             chatId,
-            `✅ *You're Already Connected\\!*\n\nYour Telegram account is linked to Threadbot\\.\n\n📱 *Status:* ${existingConfig.is_active ? 'Active' : 'Inactive'}\n\n💡 *Commands:*\n• /status \\- Check your connection status\n• /help \\- Get help\n\n📝 *To receive prompts:*\nMake sure your bot is active in your dashboard settings\\.`
+            `❓ *Unknown Command*\n\nAvailable commands:\n/start \\- Connect your account\n/verify \\- Connect your account\n/status \\- Check status\n/help \\- Get help`
           );
-        } else {
-          // User is not linked - provide verification instructions
-          await telegram.sendMessage(
+          SafeLogger.info('Sent unknown command response', { chatId, command });
+        } catch (sendError: any) {
+          SafeLogger.error('Failed to send unknown command response', {
+            error: sendError.message,
             chatId,
-            `👋 *Welcome to Threadbot\\!*\n\nTo connect your account:\n\n1️⃣ Go to your Threadbot dashboard\n2️⃣ Click "Connect Telegram" or "Settings" → "Telegram"\n3️⃣ Click "Generate Verification Code"\n4️⃣ Send the 6\\-digit code here\n\n💡 *Or* just say "hello" after generating a code\\.\n\n🔗 *Get started:* ${process.env.NEXT_PUBLIC_APP_URL || 'https://your-app.com'}/dashboard`
-          );
+            command,
+          });
         }
         return NextResponse.json({ ok: true });
-      }
-
-      if (command === '/status') {
-        if (existingConfig) {
-          const { data: stateData } = await supabase
-            .from('bot_state')
-            .select('last_prompt_type, last_prompt_sent_at')
-            .eq('user_id', existingConfig.user_id)
-            .single();
-
-          // Type assertion for Supabase query result
-          const state = stateData as { last_prompt_type: string | null; last_prompt_sent_at: string | null } | null;
-
-          const lastPrompt = state?.last_prompt_sent_at 
-            ? new Date(state.last_prompt_sent_at).toLocaleString()
-            : 'Never';
-
-          await telegram.sendMessage(
-            chatId,
-            `📊 *Your Threadbot Status*\n\n🔗 *Connection:* ✅ Linked\n📱 *Bot Status:* ${existingConfig.is_active ? '✅ Active' : '❌ Inactive'}\n📅 *Last Prompt:* ${lastPrompt}\n\n💡 To activate your bot, go to Settings → Telegram in your dashboard\\.`
-          );
-        } else {
-          await telegram.sendMessage(
-            chatId,
-            `📊 *Your Threadbot Status*\n\n🔗 *Connection:* ❌ Not Linked\n\nTo connect, use /start or /verify\\.`
-          );
-        }
-        return NextResponse.json({ ok: true });
-      }
-
-      if (command === '/help') {
-        await telegram.sendMessage(
+      } catch (commandError: any) {
+        SafeLogger.error('Error handling command', {
+          error: commandError.message,
+          stack: commandError.stack,
           chatId,
-          `ℹ️ *Threadbot Help*\n\n*Commands:*\n/start \\- Connect your account\n/verify \\- Connect your account\n/status \\- Check connection status\n/help \\- Show this help\n\n*How to Connect:*\n1\\. Go to your dashboard\n2\\. Generate a verification code\n3\\. Send the code here\n\n*Need Support?*\nVisit your dashboard for more help\\.`
-        );
+          command,
+        });
+        // Try to send error message to user
+        try {
+          await telegram.sendMessage(
+            chatId,
+            `❌ *Error Processing Command*\n\nAn error occurred while processing your command\\. Please try again or contact support\\.`
+          );
+        } catch (sendError: any) {
+          SafeLogger.error('Failed to send error message', {
+            error: sendError.message,
+            chatId,
+          });
+        }
         return NextResponse.json({ ok: true });
       }
-
-      // Unknown command
-      await telegram.sendMessage(
-        chatId,
-        `❓ *Unknown Command*\n\nAvailable commands:\n/start \\- Connect your account\n/verify \\- Connect your account\n/status \\- Check status\n/help \\- Get help`
-      );
-      return NextResponse.json({ ok: true });
     }
 
     // Check if this is a verification code (6-digit number or "hello" + code)
     const verificationCodeMatch = messageTextLower.match(/(\d{6})/);
     const isHello = messageTextLower.includes('hello') || messageTextLower.includes('hi') || messageTextLower.includes('hey');
 
+    SafeLogger.info('Processing message', {
+      chatId,
+      messageText: messageText.substring(0, 50), // Log first 50 chars for debugging
+      isCommand,
+      hasVerificationCode: !!verificationCodeMatch,
+      isHello,
+    });
+
     // Try to find verification code first
     if (verificationCodeMatch || isHello) {
       const code = verificationCodeMatch ? verificationCodeMatch[1] : null;
+      
+      SafeLogger.info('Verification code attempt', { chatId, code: code || 'hello' });
 
       // SECURITY: Rate limit verification attempts to prevent brute-force attacks
       const { data: attemptRecordData } = await supabase

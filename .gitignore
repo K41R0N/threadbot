@@ -1,5 +1,24 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
+# Temporary documentation (troubleshooting, fixes, TODOs)
+# These are created during debugging and should not be committed
+*_TROUBLESHOOTING.md
+*_DIAGNOSTIC.md
+*_FIX_TODO.md
+*_FIX_SUMMARY.md
+*_CONSTRAINT_FIX.md
+WEBHOOK_*.md
+VERIFICATION_CODE_*.md
+CRON_FIX_*.md
+TELEGRAM_CONSTRAINT_*.md
+SECURITY_RLS_*.md
+STRIPE_INTEGRATION_*.md
+DOCS_*.md
+CLEANUP_*.ps1
+HOW_TO_CLEANUP_*.md
+DOCUMENTATION_CLEANUP_*.md
+
+# Legacy/old documentation
 /CLAUDE.md
 /FIXES_APPLIED.md
 /todo.md
